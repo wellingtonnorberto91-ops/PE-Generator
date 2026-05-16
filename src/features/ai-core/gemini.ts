@@ -87,17 +87,32 @@ Extraia fielmente as seguintes informações baseadas no documento:
 - Conhecimentos (grandes temas)
 - Infraestrutura Necessária
 
-Aja também como um especialista pedagógico (Metodologia MSEP) e SUGIRA ativamente as seguintes informações com base nas competências acima:
-- Situações de Aprendizagem
-- Critérios de Avaliação
-- Estratégias de Ensino
-- Atividades Práticas
-- Instrumentos de Avaliação
+Para CADA Unidade Curricular (módulo), extraia detalhadamente:
+- Nome e Carga Horária
+- Objetivo específico da unidade
+- Capacidades Técnicas relacionadas àquela unidade
+- Capacidades Socioemocionais relacionadas
+- Conhecimentos necessários para aquela unidade
+- Recomendações pedagógicas presentes no documento para aquela unidade
+
+Aja também como um especialista pedagógico (Metodologia MSEP) e SUGIRA ativamente para CADA Unidade Curricular:
+- Sugestões da IA para o desenvolvimento da unidade (estratégias, situações de aprendizagem)
 
 Devolva ESTRITAMENTE um JSON no seguinte formato (sem formatação markdown):
 {
   "totalHours": 0,
-  "modules": [ { "name": "Nome da Unidade", "hours": 0 } ],
+  "modules": [ 
+    { 
+      "name": "Nome da Unidade", 
+      "hours": 0,
+      "objective": "Objetivo específico da unidade",
+      "technicalCapabilities": ["Capacidade Técnica 1", "Capacidade Técnica 2"],
+      "socioemotionalCapabilities": ["Capacidade Socioemocional 1"],
+      "knowledge": ["Conhecimento 1", "Conhecimento 2"],
+      "recommendations": "Texto das recomendações do documento",
+      "aiSuggestions": "Sugestões detalhadas da IA para o desenvolvimento desta UC"
+    } 
+  ],
   "msep": {
     "objetivoGeral": "Texto do objetivo (extraído)",
     "capacidadesBasicas": ["Capacidade 1 (extraída)"],
@@ -119,9 +134,26 @@ function getMockData(type: ExtractionType) {
     return {
       totalHours: 240,
       modules: [
-        { name: "Introdução à Lógica", hours: 40 },
-        { name: "Programação Web", hours: 100 },
-        { name: "Banco de Dados", hours: 100 }
+        { 
+          name: "Introdução à Lógica", 
+          hours: 40,
+          objective: "Compreender os fundamentos da lógica de programação e algoritmos.",
+          technicalCapabilities: ["Desenvolver algoritmos estruturados", "Utilizar estruturas de repetição"],
+          socioemotionalCapabilities: ["Raciocínio analítico"],
+          knowledge: ["Variáveis", "Tipos de dados", "Operadores"],
+          recommendations: "Utilizar ferramentas visuais como Portugol antes de passar para linguagem real.",
+          aiSuggestions: "Utilizar desafios de gamificação para ensinar estruturas de controle."
+        },
+        { 
+          name: "Programação Web", 
+          hours: 100,
+          objective: "Desenvolver interfaces web modernas e responsivas.",
+          technicalCapabilities: ["Criar layouts com CSS Flexbox/Grid", "Manipular o DOM com JS"],
+          socioemotionalCapabilities: ["Criatividade", "Atenção a detalhes"],
+          knowledge: ["HTML5 semantic", "CSS3 Advanced", "JavaScript ES6+"],
+          recommendations: "Focar em projetos práticos desde a primeira semana.",
+          aiSuggestions: "Sugerir a criação de um portfólio pessoal como projeto integrador da unidade."
+        }
       ],
       msep: {
         objetivoGeral: "Formar profissionais capazes de desenvolver sistemas web responsivos e modernos.",

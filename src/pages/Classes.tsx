@@ -14,7 +14,16 @@ interface TeachingPlan {
   endDate: string;
   hoursPerDay: number;
   classDays: number[];
-  modules: { name: string; hours: number }[];
+  modules: { 
+    name: string; 
+    hours: number;
+    objective?: string;
+    technicalCapabilities?: string[];
+    socioemotionalCapabilities?: string[];
+    knowledge?: string[];
+    recommendations?: string;
+    aiSuggestions?: string;
+  }[];
   msep?: {
     objetivoGeral: string;
     capacidadesBasicas: string[];
