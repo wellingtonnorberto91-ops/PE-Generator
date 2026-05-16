@@ -1,0 +1,43 @@
+PLANO DE CURSO - TÉCNICO EM INFORMÁTICA
+Unidade: SENAI - São Paulo
+Carga Horária Total: 800 horas
+
+OBJETIVO GERAL:
+Formar técnicos em informática capazes de instalar, configurar, 
+operar e dar manutenção a computadores, redes e sistemas.
+
+UNIDADES CURRICULARES:
+
+1. Fundamentos de Informática - 80 horas
+2. Sistemas Operacionais - 120 horas
+3. Redes de Computadores - 160 horas
+4. Programação Web (HTML, CSS, JavaScript) - 160 horas
+5. Banco de Dados - 120 horas
+6. Segurança da Informação - 80 horas
+7. Projeto Integrador - 80 horas
+
+CAPACIDADES BÁSICAS:
+- Comunicação oral e escrita
+- Raciocínio lógico e matemático
+- Trabalho em equipe e colaboração
+
+CAPACIDADES TÉCNICAS:
+- Instalar e configurar sistemas operacionais Windows e Linux
+- Configurar redes LAN e WAN
+- Desenvolver sistemas web responsivos
+- Modelar e gerenciar bancos de dados SQL
+- Aplicar boas práticas de segurança digital
+
+CAPACIDADES SOCIOEMOCIONAIS:
+- Proatividade e autogestão
+- Resiliência e resolução de problemas
+- Ética profissional
+
+INFRAESTRUTURA NECESSÁRIA:
+Laboratório de informática com no mínimo 20 computadores,
+switches, cabos de rede, projetor e acesso à internet.
+
+CRITÉRIOS DE AVALIAÇÃO:
+- Provas teóricas: 40%
+- Atividades práticas: 40%
+- Projeto integrador: 20%

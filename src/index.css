@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-industrial-900: #0f172a; /* Slate 900 */
+  --color-industrial-800: #1e293b; /* Slate 800 */
+  --color-industrial-700: #334155; /* Slate 700 */
+  --color-primary: #3b82f6; /* Blue 500 */
+  --color-accent: #10b981; /* Emerald 500 */
+}
+
+@layer base {
+  body {
+    @apply bg-industrial-900 text-slate-200 antialiased font-sans;
+  }
+}
