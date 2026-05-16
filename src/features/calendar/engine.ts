@@ -75,3 +75,77 @@ export function calculateEndDate(config: ScheduleConfig): CalculationResult {
     history
   };
 }
+
+export interface ModuleScheduleResult {
+  moduleName: string;
+  startDate: string;
+  endDate: string;
+  classDates: string[];
+}
+
+export interface DetailedScheduleResult {
+  modules: ModuleScheduleResult[];
+  fullHistory: CalculationResult['history'];
+}
+
+/**
+ * Motor Logístico Avançado
+ * Calcula o cronograma sequencial para múltiplos módulos.
+ */
+export function calculateDetailedSchedule(
+  config: Omit<ScheduleConfig, 'totalHours'>,
+  modules: { name: string; hours: number }[]
+): DetailedScheduleResult {
+  const holidaySet = new Set(config.holidays);
+  const results: ModuleScheduleResult[] = [];
+  const fullHistory: CalculationResult['history'] = [];
+  
+  let currentStartDate = parseISO(config.startDate);
+
+  for (const module of modules) {
+    let remainingHours = module.hours;
+    let currentDate = currentStartDate;
+    const classDates: string[] = [];
+    
+    // Se o módulo tem 0 horas, pula
+    if (remainingHours <= 0) continue;
+
+    let iterations = 0;
+    while (remainingHours > 0 && iterations < 3650) {
+      const dateString = format(currentDate, 'yyyy-MM-dd');
+      const dayOfWeek = currentDate.getDay();
+
+      if (holidaySet.has(dateString)) {
+        fullHistory.push({ date: dateString, type: 'holiday' });
+      } else if (config.classDays.includes(dayOfWeek)) {
+        fullHistory.push({ date: dateString, type: 'class' });
+        classDates.push(dateString);
+        remainingHours -= config.hoursPerDay;
+      } else if (isWeekend(currentDate)) {
+        fullHistory.push({ date: dateString, type: 'weekend' });
+      } else {
+        fullHistory.push({ date: dateString, type: 'off-day' });
+      }
+
+      if (remainingHours > 0) {
+        currentDate = addDays(currentDate, 1);
+      }
+      iterations++;
+    }
+
+    results.push({
+      moduleName: module.name,
+      startDate: classDates.length > 0 ? classDates[0] : format(currentDate, 'yyyy-MM-dd'),
+      endDate: format(currentDate, 'yyyy-MM-dd'),
+      classDates
+    });
+
+    // O próximo módulo começa no dia útil seguinte
+    currentStartDate = addDays(currentDate, 1);
+  }
+
+  return {
+    modules: results,
+    fullHistory
+  };
+}

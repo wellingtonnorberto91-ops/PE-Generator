@@ -6,6 +6,7 @@ import { Classes } from './pages/Classes';
 import { Students } from './pages/Students';
 import { Dossier } from './pages/Dossier';
 import { CurricularUnits } from './pages/CurricularUnits';
+import { Schedules } from './pages/Schedules';
 import { AppLayout } from './components/layout/AppLayout';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           <Route path="/calendars" element={<Calendars />} />
           <Route path="/classes" element={<Classes />} />
           <Route path="/units" element={<CurricularUnits />} />
+          <Route path="/schedules" element={<Schedules />} />
           <Route path="/students" element={<Students />} />
           <Route path="/dossier" element={<Dossier />} />
         </Route>

@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library, Clock } from 'lucide-react';
 
 export function AppLayout() {
   return (
@@ -29,6 +29,10 @@ export function AppLayout() {
           <a href="/units" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
             <Library size={18} className="text-slate-400" />
             <span className="font-medium text-sm">Unidades Curriculares</span>
+          </a>
+          <a href="/schedules" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
+            <Clock size={18} className="text-slate-400" />
+            <span className="font-medium text-sm">Cronogramas</span>
           </a>
           <a href="/students" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
             <Users size={18} className="text-slate-400" />
