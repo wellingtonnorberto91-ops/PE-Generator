@@ -40,7 +40,6 @@ export function Dossier() {
   const [selectedClass, setSelectedClass] = useState<string>('');
   
   const [students, setStudents] = useState<Student[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -79,22 +78,17 @@ export function Dossier() {
       snap.forEach(d => data.push({ id: d.id, ...d.data() } as Student));
       data.sort((a, b) => a.name.localeCompare(b.name));
       setStudents(data);
-      setFilteredStudents(data);
       setLoadingList(false);
     };
     fetchStudents();
   }, [selectedClass]);
 
-  useEffect(() => {
-    if (!searchQuery) {
-      setFilteredStudents(students);
-    } else {
-      const lowerQ = searchQuery.toLowerCase();
-      setFilteredStudents(students.filter(s => 
-        s.name.toLowerCase().includes(lowerQ) || s.ra.includes(lowerQ)
-      ));
-    }
-  }, [searchQuery, students]);
+  const filteredStudents = searchQuery
+    ? students.filter(s =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.ra.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : students;
 
   // Load Dossier
   useEffect(() => {

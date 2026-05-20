@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dropzone } from '../components/ui/Dropzone';
-import { extractDataFromFile } from '../features/ai-core/gemini';
+import { extractDataFromFile, type ExtractedTeachingPlan } from '../features/ai-core/gemini';
 import { calculateEndDate } from '../features/calendar/engine';
-import { BookOpen, Sparkles, Loader2, Play } from 'lucide-react';
+import { BookOpen, Sparkles, Loader2, Play, Edit3 } from 'lucide-react';
 import { db } from '../firebase/config';
 import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
 
@@ -40,20 +41,17 @@ interface TeachingPlan {
 }
 
 export function Classes() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState<TeachingPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
   // Form states
-  const [tempPlanData, setTempPlanData] = useState<any>(null);
+  const [tempPlanData, setTempPlanData] = useState<ExtractedTeachingPlan | null>(null);
   const [className, setClassName] = useState('');
   const [startDate, setStartDate] = useState('');
   const [hoursPerDay, setHoursPerDay] = useState(4);
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
-
-  useEffect(() => {
-    fetchPlans();
-  }, []);
 
   const fetchPlans = async () => {
     try {
@@ -70,6 +68,31 @@ export function Classes() {
       setFetching(false);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const q = query(collection(db, 'teaching_plans'), orderBy('startDate', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const data: TeachingPlan[] = [];
+        querySnapshot.forEach((doc) => {
+          data.push({ id: doc.id, ...doc.data() } as TeachingPlan);
+        });
+        if (active) {
+          setPlans(data);
+          setFetching(false);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar planos", error);
+        if (active) {
+          setFetching(false);
+        }
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
 
   const handleFileUpload = async (files: File[]) => {
     const file = files[0];
@@ -99,8 +122,9 @@ export function Classes() {
       } else {
         alert("A IA não conseguiu extrair a Carga Horária e Módulos do documento.");
       }
-    } catch (error: any) {
-      alert(error.message || "Erro ao processar o arquivo.");
+    } catch (error: unknown) {
+      const err = error as Error;
+      alert(err.message || "Erro ao processar o arquivo.");
     } finally {
       setLoading(false);
     }
@@ -119,6 +143,10 @@ export function Classes() {
     }
     if (selectedDays.length === 0) {
       alert("Selecione ao menos um dia da semana.");
+      return;
+    }
+    if (!tempPlanData) {
+      alert("Nenhum plano de curso carregado.");
       return;
     }
 
@@ -157,8 +185,9 @@ export function Classes() {
       setClassName('');
       setStartDate('');
       await fetchPlans();
-    } catch (error: any) {
-      alert("Erro ao calcular logística: " + error.message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      alert("Erro ao calcular logística: " + err.message);
     }
   };
 
@@ -170,8 +199,8 @@ export function Classes() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Turmas e Planos de Ensino</h1>
-        <p className="text-slate-400 mt-1">Importe a matriz curricular. O Motor Logístico calculará o fim do curso baseado nos calendários salvos.</p>
+        <h1 className="text-2xl font-semibold text-white">Turmas</h1>
+        <p className="text-slate-400 mt-1">Importe a matriz ou plano de curso. O Motor Logístico calculará a agenda da turma e término do curso baseado nos calendários e regras salvas.</p>
       </div>
 
       {/* Sentry AI Zone */}
@@ -261,8 +290,8 @@ export function Classes() {
                 <div className="md:col-span-2">
                   <label className="block text-sm text-slate-300 mb-1">Objetivo Geral</label>
                   <textarea 
-                    value={tempPlanData.msep.objetivoGeral} 
-                    onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, objetivoGeral: e.target.value}})}
+                    value={tempPlanData!.msep!.objetivoGeral} 
+                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, objetivoGeral: e.target.value}})}
                     className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-16"
                   />
                 </div>
@@ -270,8 +299,8 @@ export function Classes() {
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Capacidades Básicas</label>
                   <textarea 
-                    value={tempPlanData.msep.capacidadesBasicas.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, capacidadesBasicas: e.target.value.split(',').map((s:string) => s.trim())}})}
+                    value={tempPlanData!.msep!.capacidadesBasicas.join(', ')} 
+                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesBasicas: e.target.value.split(',').map((s:string) => s.trim())}})}
                     className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
                   />
                 </div>
@@ -279,8 +308,8 @@ export function Classes() {
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Capacidades Técnicas</label>
                   <textarea 
-                    value={tempPlanData.msep.capacidadesTecnicas.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, capacidadesTecnicas: e.target.value.split(',').map((s:string) => s.trim())}})}
+                    value={tempPlanData!.msep!.capacidadesTecnicas.join(', ')} 
+                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesTecnicas: e.target.value.split(',').map((s:string) => s.trim())}})}
                     className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
                   />
                 </div>
@@ -288,8 +317,8 @@ export function Classes() {
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Capacidades Socioemocionais</label>
                   <textarea 
-                    value={tempPlanData.msep.capacidadesSocioemocionais.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, capacidadesSocioemocionais: e.target.value.split(',').map((s:string) => s.trim())}})}
+                    value={tempPlanData!.msep!.capacidadesSocioemocionais.join(', ')} 
+                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesSocioemocionais: e.target.value.split(',').map((s:string) => s.trim())}})}
                     className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
                   />
                 </div>
@@ -297,8 +326,8 @@ export function Classes() {
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Conhecimentos / Temas</label>
                   <textarea 
-                    value={tempPlanData.msep.conhecimentos.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, conhecimentos: e.target.value.split(',').map((s:string) => s.trim())}})}
+                    value={tempPlanData!.msep!.conhecimentos.join(', ')} 
+                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, conhecimentos: e.target.value.split(',').map((s:string) => s.trim())}})}
                     className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
                   />
                 </div>
@@ -307,8 +336,8 @@ export function Classes() {
                   <label className="block text-sm text-slate-300 mb-1">Infraestrutura Necessária</label>
                   <input 
                     type="text"
-                    value={tempPlanData.msep.infraestrutura} 
-                    onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, infraestrutura: e.target.value}})}
+                    value={tempPlanData!.msep!.infraestrutura} 
+                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, infraestrutura: e.target.value}})}
                     className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white"
                   />
                 </div>
@@ -328,8 +357,8 @@ export function Classes() {
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-300 mb-1">Situações de Aprendizagem</label>
                     <textarea 
-                      value={tempPlanData.msep.situacoesAprendizagem} 
-                      onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, situacoesAprendizagem: e.target.value}})}
+                      value={tempPlanData!.msep!.situacoesAprendizagem} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, situacoesAprendizagem: e.target.value}})}
                       className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20 focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                   </div>
@@ -337,8 +366,8 @@ export function Classes() {
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-300 mb-1">Atividades Práticas (Separadas por vírgula)</label>
                     <textarea 
-                      value={tempPlanData.msep.atividadesPraticas.join(', ')} 
-                      onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, atividadesPraticas: e.target.value.split(',').map((s:string) => s.trim())}})}
+                      value={tempPlanData!.msep!.atividadesPraticas.join(', ')} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, atividadesPraticas: e.target.value.split(',').map((s:string) => s.trim())}})}
                       className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20"
                     />
                   </div>
@@ -346,8 +375,8 @@ export function Classes() {
                   <div>
                     <label className="block text-sm text-slate-300 mb-1">Estratégias de Ensino</label>
                     <textarea 
-                      value={tempPlanData.msep.estrategiasEnsino} 
-                      onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, estrategiasEnsino: e.target.value}})}
+                      value={tempPlanData!.msep!.estrategiasEnsino} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, estrategiasEnsino: e.target.value}})}
                       className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20"
                     />
                   </div>
@@ -355,8 +384,8 @@ export function Classes() {
                   <div>
                     <label className="block text-sm text-slate-300 mb-1">Critérios de Avaliação</label>
                     <textarea 
-                      value={tempPlanData.msep.criteriosAvaliacao} 
-                      onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, criteriosAvaliacao: e.target.value}})}
+                      value={tempPlanData!.msep!.criteriosAvaliacao} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, criteriosAvaliacao: e.target.value}})}
                       className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20"
                     />
                   </div>
@@ -365,8 +394,8 @@ export function Classes() {
                     <label className="block text-sm text-slate-300 mb-1">Instrumentos de Avaliação</label>
                     <input 
                       type="text"
-                      value={tempPlanData.msep.instrumentosAvaliacao.join(', ')} 
-                      onChange={e => setTempPlanData({...tempPlanData, msep: {...tempPlanData.msep, instrumentosAvaliacao: e.target.value.split(',').map((s:string) => s.trim())}})}
+                      value={tempPlanData!.msep!.instrumentosAvaliacao.join(', ')} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, instrumentosAvaliacao: e.target.value.split(',').map((s:string) => s.trim())}})}
                       className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white"
                     />
                   </div>
@@ -399,24 +428,38 @@ export function Classes() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {plans.map((p, i) => (
-              <div key={p.id || i} className="bg-industrial-900 border border-industrial-700 p-5 rounded-lg border-l-4 border-l-primary">
-                <h3 className="text-white font-medium text-lg mb-2">{p.name}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                  <div>
-                    <p className="text-slate-500">Início</p>
-                    <p className="text-slate-200">{new Date(p.startDate + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+              <div key={p.id || i} className="bg-industrial-900 border border-industrial-700 p-5 rounded-lg border-l-4 border-l-primary flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start gap-4 mb-2">
+                    <h3 className="text-white font-medium text-lg leading-snug">{p.name}</h3>
+                    {p.id && (
+                      <button 
+                        onClick={() => navigate(`/classes/edit/${p.id}`)}
+                        className="p-2 bg-industrial-800 hover:bg-industrial-700/80 text-slate-400 hover:text-white rounded-lg border border-industrial-700 hover:border-industrial-600 transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                        title="Editar Turma"
+                      >
+                        <Edit3 size={14} />
+                        Editar
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-slate-500">Término Calculado</p>
-                    <p className="text-accent font-medium">{new Date(p.endDate + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Carga Horária</p>
-                    <p className="text-slate-200">{p.totalHours}h ({p.hoursPerDay}h/dia)</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Módulos</p>
-                    <p className="text-slate-200">{p.modules?.length || 0} extraídos</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <div>
+                      <p className="text-slate-500">Início</p>
+                      <p className="text-slate-200">{new Date(p.startDate + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Término Calculado</p>
+                      <p className="text-accent font-medium">{new Date(p.endDate + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Carga Horária</p>
+                      <p className="text-slate-200">{p.totalHours}h ({p.hoursPerDay}h/dia)</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Módulos</p>
+                      <p className="text-slate-200">{p.modules?.length || 0} extraídos</p>
+                    </div>
                   </div>
                 </div>
               </div>

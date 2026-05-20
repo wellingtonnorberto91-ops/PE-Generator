@@ -11,14 +11,17 @@ export interface ScheduleConfig {
 export interface CalculationResult {
   endDate: string; // YYYY-MM-DD
   totalClassDays: number;
-  history: { date: string; type: 'class' | 'holiday' | 'weekend' | 'off-day' }[];
+  history: { date: string; type: 'class' | 'holiday' | 'weekend' | 'off-day'; note?: string }[];
 }
 
 /**
  * Motor Logístico (Sentry Logistics Engine)
  * Calcula a data exata de término do curso pulando feriados, finais de semana e dias em que não há aula.
  */
-export function calculateEndDate(config: ScheduleConfig): CalculationResult {
+export function calculateEndDate(
+  config: ScheduleConfig,
+  overrides?: Record<string, { type?: 'class' | 'holiday' | 'off-day' | 'weekend'; note?: string }>
+): CalculationResult {
   let currentDate = parseISO(config.startDate);
   let remainingHours = config.totalHours;
   let classDaysCount = 0;
@@ -39,24 +42,25 @@ export function calculateEndDate(config: ScheduleConfig): CalculationResult {
     const dateString = format(currentDate, 'yyyy-MM-dd');
     const dayOfWeek = currentDate.getDay(); // 0 = Domingo, 1 = Segunda...
 
-    // 1. Verifica se é feriado (Recesso)
-    if (holidaySet.has(dateString)) {
-      history.push({ date: dateString, type: 'holiday' });
-    } 
-    // 2. Verifica se o dia da semana está na grade da turma
-    else if (config.classDays.includes(dayOfWeek)) {
-      history.push({ date: dateString, type: 'class' });
+    const override = overrides?.[dateString];
+    const isHoliday = override ? (override.type === 'holiday') : holidaySet.has(dateString);
+    const isClass = override ? (override.type === 'class') : (!isHoliday && config.classDays.includes(dayOfWeek));
+    const isWeekendDay = isWeekend(currentDate);
+
+    let finalType: 'class' | 'holiday' | 'weekend' | 'off-day';
+    if (isHoliday) {
+      finalType = 'holiday';
+    } else if (isClass) {
+      finalType = 'class';
       remainingHours -= config.hoursPerDay;
       classDaysCount++;
-    } 
-    // 3. É fim de semana sem aula
-    else if (isWeekend(currentDate)) {
-      history.push({ date: dateString, type: 'weekend' });
-    } 
-    // 4. É dia útil, mas a turma não tem aula (ex: Turma de Seg/Qua/Sex, e hoje é Terça)
-    else {
-      history.push({ date: dateString, type: 'off-day' });
+    } else if (isWeekendDay) {
+      finalType = 'weekend';
+    } else {
+      finalType = 'off-day';
     }
+
+    history.push({ date: dateString, type: finalType, note: override?.note });
 
     // Avança para o próximo dia se ainda restarem horas
     if (remainingHours > 0) {
@@ -94,7 +98,8 @@ export interface DetailedScheduleResult {
  */
 export function calculateDetailedSchedule(
   config: Omit<ScheduleConfig, 'totalHours'>,
-  modules: { name: string; hours: number }[]
+  modules: { name: string; hours: number }[],
+  overrides?: Record<string, { type?: 'class' | 'holiday' | 'off-day' | 'weekend'; note?: string }>
 ): DetailedScheduleResult {
   const holidaySet = new Set(config.holidays);
   const results: ModuleScheduleResult[] = [];
@@ -115,17 +120,25 @@ export function calculateDetailedSchedule(
       const dateString = format(currentDate, 'yyyy-MM-dd');
       const dayOfWeek = currentDate.getDay();
 
-      if (holidaySet.has(dateString)) {
-        fullHistory.push({ date: dateString, type: 'holiday' });
-      } else if (config.classDays.includes(dayOfWeek)) {
-        fullHistory.push({ date: dateString, type: 'class' });
+      const override = overrides?.[dateString];
+      const isHoliday = override ? (override.type === 'holiday') : holidaySet.has(dateString);
+      const isClass = override ? (override.type === 'class') : (!isHoliday && config.classDays.includes(dayOfWeek));
+      const isWeekendDay = isWeekend(currentDate);
+
+      let finalType: 'class' | 'holiday' | 'weekend' | 'off-day';
+      if (isHoliday) {
+        finalType = 'holiday';
+      } else if (isClass) {
+        finalType = 'class';
         classDates.push(dateString);
         remainingHours -= config.hoursPerDay;
-      } else if (isWeekend(currentDate)) {
-        fullHistory.push({ date: dateString, type: 'weekend' });
+      } else if (isWeekendDay) {
+        finalType = 'weekend';
       } else {
-        fullHistory.push({ date: dateString, type: 'off-day' });
+        finalType = 'off-day';
       }
+
+      fullHistory.push({ date: dateString, type: finalType, note: override?.note });
 
       if (remainingHours > 0) {
         currentDate = addDays(currentDate, 1);

@@ -1,7 +1,21 @@
-import { Outlet } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library, Clock } from 'lucide-react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library, Clock, LogOut } from 'lucide-react';
+import { auth } from '../../firebase/config';
+import { signOut } from 'firebase/auth';
+
 
 export function AppLayout() {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-industrial-900 text-slate-200">
       {/* Sidebar sidebar */}
@@ -18,21 +32,21 @@ export function AppLayout() {
             <LayoutDashboard size={18} className="text-primary" />
             <span className="font-medium text-sm">Dashboard</span>
           </a>
-          <a href="/calendars" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <Calendar size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Calendários</span>
-          </a>
           <a href="/classes" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
             <FileText size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Planos de Ensino</span>
-          </a>
-          <a href="/units" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <Library size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Unidades Curriculares</span>
+            <span className="font-medium text-sm">Turmas</span>
           </a>
           <a href="/schedules" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
             <Clock size={18} className="text-slate-400" />
             <span className="font-medium text-sm">Cronogramas</span>
+          </a>
+          <a href="/calendars" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
+            <Calendar size={18} className="text-slate-400" />
+            <span className="font-medium text-sm">Calendários</span>
+          </a>
+          <a href="/units" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
+            <Library size={18} className="text-slate-400" />
+            <span className="font-medium text-sm">Unidades Curriculares</span>
           </a>
           <a href="/students" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
             <Users size={18} className="text-slate-400" />
@@ -54,6 +68,14 @@ export function AppLayout() {
         <header className="h-16 border-b border-industrial-700 flex items-center justify-between px-8 bg-industrial-800/50 backdrop-blur-sm sticky top-0 z-10">
           <h2 className="text-lg font-medium text-slate-200">Visão Geral</h2>
           <div className="flex items-center gap-4">
+            <button 
+              onClick={handleLogout}
+              className="text-slate-400 hover:text-red-400 transition-colors flex items-center gap-2 text-sm font-medium mr-2"
+              title="Sair do sistema"
+            >
+              <LogOut size={18} />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
             <div className="w-8 h-8 rounded-full bg-industrial-700 flex items-center justify-center border border-industrial-700">
               <span className="text-sm font-medium">DO</span>
             </div>

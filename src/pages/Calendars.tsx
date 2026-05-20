@@ -16,10 +16,6 @@ export function Calendars() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
-  useEffect(() => {
-    fetchHolidays();
-  }, []);
-
   const fetchHolidays = async () => {
     try {
       const q = query(collection(db, 'calendars'), orderBy('date', 'asc'));
@@ -36,6 +32,31 @@ export function Calendars() {
     }
   };
 
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const q = query(collection(db, 'calendars'), orderBy('date', 'asc'));
+        const querySnapshot = await getDocs(q);
+        const data: Holiday[] = [];
+        querySnapshot.forEach((doc) => {
+          data.push({ id: doc.id, ...doc.data() } as Holiday);
+        });
+        if (active) {
+          setHolidays(data);
+          setFetching(false);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar calendários", error);
+        if (active) {
+          setFetching(false);
+        }
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
+
   const handleFileUpload = async (files: File[]) => {
     const file = files[0];
     if (!file) return;
@@ -46,7 +67,7 @@ export function Calendars() {
       const data = await extractDataFromFile(file, 'CALENDAR');
       if (data && data.holidays && Array.isArray(data.holidays)) {
         // Concatenar os feriados extraídos com os existentes no estado local (ainda não salvos)
-        const newHolidays = data.holidays.filter((h: any) => h.date && h.description);
+        const newHolidays = data.holidays.filter((h) => h.date && h.description);
         
         for (const holiday of newHolidays) {
           await addDoc(collection(db, 'calendars'), {
@@ -59,8 +80,9 @@ export function Calendars() {
       } else {
         alert("A IA não conseguiu encontrar feriados válidos no documento.");
       }
-    } catch (error: any) {
-      alert(error.message || "Erro ao processar o arquivo.");
+    } catch (error: unknown) {
+      const err = error as Error;
+      alert(err.message || "Erro ao processar o arquivo.");
     } finally {
       setLoading(false);
     }

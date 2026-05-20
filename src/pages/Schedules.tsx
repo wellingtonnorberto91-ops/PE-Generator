@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { calculateDetailedSchedule, DetailedScheduleResult } from '../features/calendar/engine';
+import { calculateDetailedSchedule } from '../features/calendar/engine';
 import { Calendar, Clock, ChevronRight, FileDown, Layers, MapPin, Sparkles } from 'lucide-react';
 import { format, parseISO, getMonth, getYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +19,7 @@ interface TeachingPlan {
   hoursPerDay: number;
   classDays: number[];
   modules: Module[];
+  scheduleOverrides?: Record<string, { type?: 'class' | 'holiday' | 'off-day' | 'weekend'; note?: string }>;
 }
 
 interface Holiday {
@@ -30,7 +31,6 @@ export function Schedules() {
   const [plans, setPlans] = useState<TeachingPlan[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
-  const [schedule, setSchedule] = useState<DetailedScheduleResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,25 +63,17 @@ export function Schedules() {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if (selectedPlanId) {
-      const plan = plans.find(p => p.id === selectedPlanId);
-      if (plan) {
-        const result = calculateDetailedSchedule(
-          {
-            startDate: plan.startDate,
-            hoursPerDay: plan.hoursPerDay,
-            classDays: plan.classDays,
-            holidays: holidays.map(h => h.date)
-          },
-          plan.modules
-        );
-        setSchedule(result);
-      }
-    }
-  }, [selectedPlanId, plans, holidays]);
-
   const selectedPlan = plans.find(p => p.id === selectedPlanId);
+  const schedule = (selectedPlanId && selectedPlan) ? calculateDetailedSchedule(
+    {
+      startDate: selectedPlan.startDate,
+      hoursPerDay: selectedPlan.hoursPerDay,
+      classDays: selectedPlan.classDays,
+      holidays: holidays.map(h => h.date)
+    },
+    selectedPlan.modules,
+    selectedPlan.scheduleOverrides
+  ) : null;
 
   // Grouping logic for semesters
   const groupDatesBySemester = () => {
@@ -128,7 +120,7 @@ export function Schedules() {
         </div>
 
         <div className="relative z-10 flex flex-col gap-2 min-w-[300px]">
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Turma / Plano de Ensino</label>
+          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Selecionar Turma</label>
           <select 
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -209,6 +201,7 @@ export function Schedules() {
                                         {semesters[semesterName][monthName].map((item, i) => {
                                             const [dateStr, moduleName] = item.split('|');
                                             const date = parseISO(dateStr);
+                                            const customNote = selectedPlan.scheduleOverrides?.[dateStr]?.note;
                                             return (
                                                 <div key={i} className="flex items-center gap-4 p-3 rounded-xl hover:bg-industrial-700/20 transition-colors border border-transparent hover:border-industrial-700/50">
                                                     <div className="flex flex-col items-center justify-center min-w-[40px] h-12 rounded-xl bg-industrial-900 border border-industrial-700">
@@ -217,9 +210,16 @@ export function Schedules() {
                                                     </div>
                                                     <div className="flex-1 overflow-hidden">
                                                         <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter truncate">{moduleName}</p>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <MapPin size={8} className="text-slate-600" />
-                                                            <span className="text-[9px] text-slate-400">Presencial - {selectedPlan.hoursPerDay}h</span>
+                                                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <MapPin size={8} className="text-slate-600" />
+                                                                <span className="text-[9px] text-slate-400">Presencial - {selectedPlan.hoursPerDay}h</span>
+                                                            </div>
+                                                            {customNote && (
+                                                                <span className="text-[9px] text-accent font-semibold truncate max-w-[150px] bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+                                                                    {customNote}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -237,8 +237,8 @@ export function Schedules() {
       ) : (
         <div className="bg-industrial-800 p-24 rounded-3xl text-center border-2 border-dashed border-industrial-700">
           <Calendar size={64} className="mx-auto text-industrial-600 mb-6" />
-          <h2 className="text-2xl font-bold text-white mb-2">Configure um Plano de Ensino</h2>
-          <p className="text-slate-400 max-w-md mx-auto">Para gerar o cronograma, você precisa ter uma turma cadastrada com data de início e carga horária definida.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Selecione ou Cadastre uma Turma</h2>
+          <p className="text-slate-400 max-w-md mx-auto">Para gerar o cronograma, você precisa ter uma turma cadastrada com data de início e carga horária definida em seu plano de curso.</p>
         </div>
       )}
 

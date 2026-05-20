@@ -80,7 +80,7 @@ export function Students() {
     try {
       const data = await extractDataFromFile(file, 'STUDENTS');
       if (data && data.students && Array.isArray(data.students)) {
-        const extractedStudents = data.students.filter((s: any) => s.name && s.ra);
+        const extractedStudents = data.students.filter((s) => s.name && s.ra);
         
         let added = 0;
         for (const stu of extractedStudents) {
@@ -104,8 +104,9 @@ export function Students() {
       } else {
         alert("A IA não conseguiu encontrar alunos válidos na planilha.");
       }
-    } catch (error: any) {
-      alert(error.message || "Erro ao processar o arquivo.");
+    } catch (error: unknown) {
+      const err = error as Error;
+      alert(err.message || "Erro ao processar o arquivo.");
     } finally {
       setLoading(false);
     }

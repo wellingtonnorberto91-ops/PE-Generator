@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { BookOpen, ChevronRight, ChevronDown, Target, Brain, Lightbulb, Info, ShieldCheck } from 'lucide-react';
+import { BookOpen, ChevronRight, ChevronDown, Target, Brain, Lightbulb, Info, ShieldCheck, Users } from 'lucide-react';
 
 interface Module {
   name: string;

@@ -19,7 +19,7 @@ export function Login() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Credenciais inválidas ou erro no servidor.');
       console.error(err);
     } finally {

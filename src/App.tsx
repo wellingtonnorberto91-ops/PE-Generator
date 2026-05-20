@@ -7,6 +7,8 @@ import { Students } from './pages/Students';
 import { Dossier } from './pages/Dossier';
 import { CurricularUnits } from './pages/CurricularUnits';
 import { Schedules } from './pages/Schedules';
+import { ClassEditor } from './pages/ClassEditor';
+import { TeachingPlanEditor } from './pages/TeachingPlanEditor';
 import { AppLayout } from './components/layout/AppLayout';
 
 function App() {
@@ -19,6 +21,8 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/calendars" element={<Calendars />} />
           <Route path="/classes" element={<Classes />} />
+          <Route path="/classes/edit/:id" element={<ClassEditor />} />
+          <Route path="/classes/:classId/modules/:moduleIndex/teaching-plan" element={<TeachingPlanEditor />} />
           <Route path="/units" element={<CurricularUnits />} />
           <Route path="/schedules" element={<Schedules />} />
           <Route path="/students" element={<Students />} />
