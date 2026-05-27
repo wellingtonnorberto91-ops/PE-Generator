@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Initialize the Gemini API using the new official SDK
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
@@ -25,26 +25,21 @@ async function fileToGenerativePart(file: File): Promise<{ inlineData: { data: s
 }
 
 /**
- * Extracts text from Excel files using sheetjs
+ * Extracts text from Excel files using exceljs
  */
 async function extractExcelToCsv(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const csv = XLSX.utils.sheet_to_csv(worksheet);
-        resolve(csv);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsBinaryString(file);
+  const buffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const worksheet = workbook.worksheets[0];
+  const rows: string[] = [];
+  worksheet.eachRow({ includeEmpty: true }, (row) => {
+    const values = row.values as (string | number | null)[];
+    // row.values[0] is a placeholder; skip it
+    const csvLine = values.slice(1).map(v => (v === null || v === undefined ? '' : v)).join(',');
+    rows.push(csvLine);
   });
+  return rows.join('\n');
 }
 
 /**
@@ -625,7 +620,7 @@ Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem texto extr
   try {
     const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
     const responseText = result.text || '';
-    let cleanJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
     if (jsonMatch) cleanJson = jsonMatch[0];
     return JSON.parse(cleanJson) as ModuleTeachingPlan;

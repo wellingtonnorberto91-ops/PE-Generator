@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
-import { auth } from '../firebase/config';
+import { auth, isAdmin } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export function Login() {
@@ -18,10 +18,16 @@ export function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/');
-    } catch (err: unknown) {
+      const user = auth.currentUser;
+      if (user) {
+        const admin = await isAdmin(user.uid);
+        navigate(admin ? '/admin' : '/');
+      } else {
+        navigate('/');
+      }
+    } catch (e) {
       setError('Credenciais inválidas ou erro no servidor.');
-      console.error(err);
+      console.error(e);
     } finally {
       setLoading(false);
     }

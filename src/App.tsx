@@ -10,6 +10,7 @@ import { Schedules } from './pages/Schedules';
 import { ClassEditor } from './pages/ClassEditor';
 import { TeachingPlanEditor } from './pages/TeachingPlanEditor';
 import { AppLayout } from './components/layout/AppLayout';
+import AdminRoute from './components/AdminRoute';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/schedules" element={<Schedules />} />
           <Route path="/students" element={<Students />} />
           <Route path="/dossier" element={<Dossier />} />
+          <Route path="/admin" element={<AdminRoute />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

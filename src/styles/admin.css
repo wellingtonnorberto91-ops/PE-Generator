@@ -1,0 +1,47 @@
+:root {
+  --color-bg: #0a0a0a; /* preto profundo */
+  --color-primary: #ff2d00; /* vermelho agressivo */
+  --color-accent: #ffd700; /* amarelo ouro */
+}
+
+.admin-dashboard {
+  background-color: var(--color-bg);
+  color: #fff;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.admin-title {
+  color: var(--color-primary);
+  font-family: 'Outfit', sans-serif;
+  text-shadow: 2px 2px 0 var(--color-accent);
+}
+
+.admin-table th,
+.admin-table td {
+  border: 1px solid var(--color-accent);
+  padding: 0.5rem;
+}
+
+.admin-table th {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.admin-table tr:nth-child(even) {
+  background: rgba(255,255,255,0.05);
+}
+
+button {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background: var(--color-accent);
+  color: #000;
+}
