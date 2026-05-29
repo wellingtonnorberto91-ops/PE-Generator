@@ -1,6 +1,6 @@
 import { auth, db } from '../firebase/config';
 import { createUserWithEmailAndPassword, deleteUser as firebaseDeleteUser } from 'firebase/auth';
-import { collection, addDoc, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 
 // Helper to set custom claim via callable Cloud Function (placeholder)
 async function setCustomUserClaims(uid: string, claims: { admin?: boolean }) {

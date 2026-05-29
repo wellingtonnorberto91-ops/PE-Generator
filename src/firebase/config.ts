@@ -34,9 +34,9 @@ export async function setCustomUserClaims(uid: string, claims: Record<string, un
 }
 
 export async function syncRolesToFirestore(uid: string, isAdmin: boolean) {
-  // Sync role document for fallback checks.
+  // Atualiza o campo 'role' no documento do usuário para sincronizar com a verificação de admin
   try {
-    await setDoc(doc(db, 'roles', uid), { isAdmin });
+    await setDoc(doc(db, 'users', uid), { role: isAdmin ? 'admin' : 'user' }, { merge: true });
   } catch (e) {
     console.error('Erro ao sincronizar role no Firestore', e);
   }

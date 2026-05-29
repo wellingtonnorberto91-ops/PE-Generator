@@ -630,3 +630,58 @@ Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem texto extr
   }
 }
 
+/**
+ * Gera critérios de avaliação personalizados usando a metodologia do PDF do usuário ou uma metodologia existente como referência
+ */
+export async function generateCriteriaWithMethodology(
+  pdfFile: File | null,
+  capabilities: string[],
+  existingMethodologyText?: string
+): Promise<string[]> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    console.warn('Sentry AI: Chave API ausente. Usando critérios simulados.');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return capabilities.map(cap => `Critério profissional de avaliação para a capacidade: "${cap}"`);
+  }
+
+  let methodologyInstructions = 'Formule critérios de avaliação pedagógica profissional de alta qualidade correspondentes a cada uma das capacidades acima.';
+  if (pdfFile) {
+    methodologyInstructions = 'Utilize o documento metodológico em anexo para formular exatamente 1 critério de avaliação pedagógica profissional correspondente a cada uma das capacidades acima.';
+  } else if (existingMethodologyText) {
+    methodologyInstructions = `Utilize a seguinte metodologia de referência que já foi aplicada em outro plano de ensino para formular exatamente 1 critério de avaliação pedagógica profissional correspondente a cada uma das capacidades acima:\n\nMETODOLOGIA DE REFERÊNCIA:\n"${existingMethodologyText}"`;
+  }
+
+  const prompt = `Você é um especialista em educação profissional. Baseado nas seguintes capacidades a serem avaliadas:
+${capabilities.map((cap, i) => `${i + 1}. ${cap}`).join('\n')}
+
+${methodologyInstructions}
+
+Devolve ESTRITAMENTE um array JSON de strings contendo exatamente a mesma quantidade de critérios correspondentes, na mesma ordem das capacidades enviadas (exemplo: ["Critério 1", "Critério 2"]). Sem formatação markdown, sem tags \`\`\`json ou explicações extras.`;
+
+  try {
+    let contents: string | ({ text: string } | { inlineData: { data: string; mimeType: string } })[] = prompt;
+    if (pdfFile) {
+      const filePart = await fileToGenerativePart(pdfFile);
+      contents = [
+        { text: prompt },
+        filePart
+      ];
+    }
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: contents,
+    });
+    const responseText = result.text || '';
+    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonMatch = cleanJson.match(/\[[\s\S]*\]/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+    return JSON.parse(cleanJson) as string[];
+  } catch (error: unknown) {
+    console.error('Sentry AI Criteria Error:', error);
+    return capabilities.map(cap => `Critério de avaliação sugerido para: ${cap}`);
+  }
+}
+
+

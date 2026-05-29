@@ -23,3 +23,4 @@
   },
   "exclude": ["src/api", "src/middleware"]
 
+}

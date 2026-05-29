@@ -16,7 +16,7 @@ export async function authAdmin(req: Request, res: Response, next: NextFunction)
       return res.status(403).json({ message: 'Forbidden: admin only' });
     }
     // Attach uid to request for downstream handlers if needed
-    (req as any).uid = user.uid;
+    (req as Request & { uid?: string }).uid = user.uid;
     next();
   } catch (e) {
     console.error('Auth admin error', e);

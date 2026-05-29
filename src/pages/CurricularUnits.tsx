@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { BookOpen, ChevronRight, ChevronDown, Target, Brain, Lightbulb, Info, ShieldCheck, Users } from 'lucide-react';
+import { BookOpen, ChevronRight, ChevronDown, Target, Brain, Lightbulb, Info, ShieldCheck, Users, Sparkles } from 'lucide-react';
+import { TeachingPlanCreator } from '../components/Admin/TeachingPlanCreator';
 
 interface Module {
   name: string;
   hours: number;
   objective?: string;
+  objetivo?: string;
   technicalCapabilities?: string[];
+  capacidadesTecnicas?: string[];
   socioemotionalCapabilities?: string[];
+  capacidadesSocioemocionais?: string[];
   knowledge?: string[];
+  conhecimentos?: string[];
   recommendations?: string;
+  recomendacoes?: string;
   aiSuggestions?: string;
 }
 
@@ -26,6 +32,10 @@ export function CurricularUnits() {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // States para o criador de plano de ensino
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
+  const [activeModuleForCreator, setActiveModuleForCreator] = useState<Module | null>(null);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -113,6 +123,29 @@ export function CurricularUnits() {
                 {expandedModule === module.name && (
                   <div className="p-6 border-t border-industrial-700 bg-industrial-900/50 space-y-8 animate-in slide-in-from-top-2 duration-300">
                     
+                    {/* Banner de Criação Assistida por IA */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-gradient-to-r from-primary/10 to-accent/5 border border-primary/20 rounded-xl relative overflow-hidden">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary animate-pulse">
+                          <Sparkles size={20} />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white uppercase tracking-wider">Plano de Ensino por Competências</h4>
+                          <p className="text-xs text-slate-400 mt-0.5">Gere e preencha a Tabela de Avaliação Formativa de cada aluno de forma interativa por IA.</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveModuleForCreator(module);
+                          setIsCreatorOpen(true);
+                        }}
+                        className="px-5 py-2.5 bg-primary hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/10 cursor-pointer self-stretch sm:self-auto text-center"
+                      >
+                        Criar Plano de Ensino
+                      </button>
+                    </div>
+
                     {/* Objetivos Section */}
                     <div className="space-y-3">
                       <h4 className="text-sm font-bold text-primary flex items-center gap-2 uppercase tracking-widest">
@@ -120,7 +153,7 @@ export function CurricularUnits() {
                         Objetivos da Unidade
                       </h4>
                       <p className="text-slate-300 leading-relaxed bg-industrial-800/50 p-4 rounded-lg border border-industrial-700/50">
-                        {module.objective || "Não extraído do plano de curso."}
+                        {module.objective || module.objetivo || selectedPlan.msep?.objetivoGeral || "Não extraído do plano de curso."}
                       </p>
                     </div>
 
@@ -132,12 +165,16 @@ export function CurricularUnits() {
                           Capacidades Técnicas
                         </h4>
                         <ul className="space-y-2">
-                          {module.technicalCapabilities?.map((cap, i) => (
-                            <li key={i} className="flex gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
-                              <ShieldCheck size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                              {cap}
-                            </li>
-                          )) || <li className="text-slate-500 italic text-sm">Não listadas.</li>}
+                          {(module.technicalCapabilities || module.capacidadesTecnicas || selectedPlan.msep?.capacidadesTecnicas || []).length > 0 ? (
+                            (module.technicalCapabilities || module.capacidadesTecnicas || selectedPlan.msep?.capacidadesTecnicas || []).map((cap: string, i: number) => (
+                              <li key={i} className="flex gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
+                                <ShieldCheck size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                                {cap}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-slate-500 italic text-sm">Não listadas.</li>
+                          )}
                         </ul>
                       </div>
 
@@ -147,12 +184,16 @@ export function CurricularUnits() {
                           Capacidades Socioemocionais
                         </h4>
                         <ul className="space-y-2">
-                          {module.socioemotionalCapabilities?.map((cap, i) => (
-                            <li key={i} className="flex gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
-                              <ShieldCheck size={14} className="text-indigo-500 shrink-0 mt-0.5" />
-                              {cap}
-                            </li>
-                          )) || <li className="text-slate-500 italic text-sm">Não listadas.</li>}
+                          {(module.socioemotionalCapabilities || module.capacidadesSocioemocionais || selectedPlan.msep?.capacidadesSocioemocionais || []).length > 0 ? (
+                            (module.socioemotionalCapabilities || module.capacidadesSocioemocionais || selectedPlan.msep?.capacidadesSocioemocionais || []).map((cap: string, i: number) => (
+                              <li key={i} className="flex gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
+                                <ShieldCheck size={14} className="text-indigo-500 shrink-0 mt-0.5" />
+                                {cap}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-slate-500 italic text-sm">Não listadas.</li>
+                          )}
                         </ul>
                       </div>
                     </div>
@@ -164,11 +205,15 @@ export function CurricularUnits() {
                         Conhecimentos Necessários
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {module.knowledge?.map((k, i) => (
-                          <span key={i} className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
-                            {k}
-                          </span>
-                        )) || <span className="text-slate-500 italic text-sm">Não listados.</span>}
+                        {(module.knowledge || module.conhecimentos || selectedPlan.msep?.conhecimentos || []).length > 0 ? (
+                          (module.knowledge || module.conhecimentos || selectedPlan.msep?.conhecimentos || []).map((k: string, i: number) => (
+                            <span key={i} className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
+                              {k}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-slate-500 italic text-sm">Não listados.</span>
+                        )}
                       </div>
                     </div>
 
@@ -180,7 +225,7 @@ export function CurricularUnits() {
                           Recomendações do Plano
                         </h4>
                         <p className="text-sm text-slate-400 bg-industrial-800/30 p-4 rounded-xl italic">
-                          "{module.recommendations || "Nenhuma recomendação específica encontrada."}"
+                          "{module.recommendations || module.recomendacoes || "Nenhuma recomendação específica encontrada."}"
                         </p>
                       </div>
 
@@ -213,28 +258,21 @@ export function CurricularUnits() {
           <p className="text-slate-400">Importe um Plano de Ensino primeiro para ver suas unidades curriculares.</p>
         </div>
       )}
+
+      {/* Modal Criador de Plano de Ensino por IA */}
+      {activeModuleForCreator && (
+        <TeachingPlanCreator 
+          isOpen={isCreatorOpen}
+          onClose={() => {
+            setIsCreatorOpen(false);
+            setActiveModuleForCreator(null);
+          }}
+          module={activeModuleForCreator}
+          courseName={selectedPlan?.name || ''}
+          planId={selectedPlanId}
+        />
+      )}
     </div>
   );
 }
 
-function Sparkles({ className, size }: { className?: string, size?: number }) {
-  return (
-    <svg 
-      className={className} 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-      <path d="M5 3v4" />
-      <path d="M19 17v4" />
-      <path d="M3 5h4" />
-      <path d="M17 19h4" />
-    </svg>
-  );
-}
