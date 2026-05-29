@@ -20,11 +20,20 @@ interface Module {
   aiSuggestions?: string;
 }
 
+interface MSEP {
+  objetivoGeral?: string;
+  capacidadesBasicas?: string[];
+  capacidadesTecnicas?: string[];
+  capacidadesSocioemocionais?: string[];
+  conhecimentos?: string[];
+}
+
 interface TeachingPlan {
   id: string;
   name: string;
   totalHours: number;
   modules: Module[];
+  msep?: MSEP;
 }
 
 export function CurricularUnits() {
