@@ -684,4 +684,53 @@ Devolve ESTRITAMENTE um array JSON de strings contendo exatamente a mesma quanti
   }
 }
 
+/**
+ * Gera uma sugestão automática de Situação de Aprendizagem (Contexto/Desafio) alinhada com as capacidades e conhecimentos
+ */
+export async function generateLearningSituationsAI(
+  moduleName: string,
+  capabilities: string[],
+  knowledge: string[]
+): Promise<string> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  const mockFallback = `SITUAÇÃO DE APRENDIZAGEM PRÁTICA:
+Contexto: Uma empresa local do setor industrial precisa de uma solução robusta envolvendo os conceitos de ${moduleName}. Os alunos atuarão como consultores técnicos seniores para diagnosticar e implementar as melhorias necessárias.
+
+Desafio: Desenvolver e documentar um projeto integrador completo focado em ${knowledge.slice(0, 3).join(', ')}, aplicando de forma prática as capacidades essenciais de ${capabilities.slice(0, 2).join(' e ')}.`;
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    console.warn('Sentry AI: Chave API ausente. Usando situação de aprendizagem simulada.');
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    return mockFallback;
+  }
+
+  const prompt = `Você é um coordenador pedagógico especialista na metodologia por competências (MSEP).
+Estamos elaborando o plano de ensino para a Unidade Curricular "${moduleName}".
+Temos as seguintes capacidades definidas:
+${capabilities.map(c => `- ${c}`).join('\n')}
+
+E os seguintes conhecimentos a serem abordados:
+${knowledge.map(k => `- ${k}`).join('\n')}
+
+Escreva uma Situação de Aprendizagem altamente contextualizada, realista e profissional para essa unidade. O texto deve incluir de forma clara e fluida:
+1. Um Contexto realista que apresente um problema no mercado de trabalho ou indústria.
+2. Um Desafio prático e acionável para o aluno resolver.
+3. Resultados esperados alinhados às capacidades listadas.
+
+Seja direto, focado na metodologia por competências. Retorne somente o texto estruturado em português, sem formatação markdown ou JSON.`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return result.text || mockFallback;
+  } catch (error: unknown) {
+    console.error('Sentry AI Learning Situation Error:', error);
+    return mockFallback;
+  }
+}
+
+
 

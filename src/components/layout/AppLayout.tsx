@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, NavLink } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library, Clock, LogOut } from 'lucide-react';
 import { auth } from '../../firebase/config';
 import { signOut } from 'firebase/auth';
@@ -16,6 +16,13 @@ export function AppLayout() {
     }
   };
 
+  const navItemClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+      isActive
+        ? 'bg-industrial-700 text-white font-semibold'
+        : 'hover:bg-industrial-700/50 text-slate-300'
+    }`;
+
   return (
     <div className="flex h-screen bg-industrial-900 text-slate-200">
       {/* Sidebar sidebar */}
@@ -28,34 +35,62 @@ export function AppLayout() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          <a href="/" className="flex items-center gap-3 px-3 py-2 rounded-md bg-industrial-700 text-white">
-            <LayoutDashboard size={18} className="text-primary" />
-            <span className="font-medium text-sm">Dashboard</span>
-          </a>
-          <a href="/classes" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <FileText size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Turmas</span>
-          </a>
-          <a href="/schedules" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <Clock size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Cronogramas</span>
-          </a>
-          <a href="/calendars" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <Calendar size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Calendários</span>
-          </a>
-          <a href="/units" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <Library size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Unidades Curriculares</span>
-          </a>
-          <a href="/students" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <Users size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Alunos</span>
-          </a>
-          <a href="/dossier" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-industrial-700/50 text-slate-300 transition-colors">
-            <FileSignature size={18} className="text-slate-400" />
-            <span className="font-medium text-sm">Dossiê Digital</span>
-          </a>
+          <NavLink to="/" className={navItemClass} end>
+            {({ isActive }) => (
+              <>
+                <LayoutDashboard size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Dashboard</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/classes" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <FileText size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Turmas</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/schedules" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <Clock size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Cronogramas</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/calendars" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <Calendar size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Calendários</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/units" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <Library size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Unidades Curriculares</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/students" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <Users size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Alunos</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/dossier" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <FileSignature size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Dossiê Digital</span>
+              </>
+            )}
+          </NavLink>
         </nav>
 
         <div className="p-4 border-t border-industrial-700 text-xs text-slate-500 text-center">

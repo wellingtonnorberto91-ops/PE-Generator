@@ -176,9 +176,14 @@ export function CurricularUnits() {
                         <ul className="space-y-2">
                           {(module.technicalCapabilities || module.capacidadesTecnicas || selectedPlan.msep?.capacidadesTecnicas || []).length > 0 ? (
                             (module.technicalCapabilities || module.capacidadesTecnicas || selectedPlan.msep?.capacidadesTecnicas || []).map((cap: string, i: number) => (
-                              <li key={i} className="flex gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
-                                <ShieldCheck size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                                {cap}
+                              <li key={i} className="flex items-center justify-between gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
+                                <div className="flex items-center gap-2">
+                                  <ShieldCheck size={14} className="text-amber-500 shrink-0" />
+                                  <span>{cap}</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                                  Técnica
+                                </span>
                               </li>
                             ))
                           ) : (
@@ -195,9 +200,14 @@ export function CurricularUnits() {
                         <ul className="space-y-2">
                           {(module.socioemotionalCapabilities || module.capacidadesSocioemocionais || selectedPlan.msep?.capacidadesSocioemocionais || []).length > 0 ? (
                             (module.socioemotionalCapabilities || module.capacidadesSocioemocionais || selectedPlan.msep?.capacidadesSocioemocionais || []).map((cap: string, i: number) => (
-                              <li key={i} className="flex gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
-                                <ShieldCheck size={14} className="text-indigo-500 shrink-0 mt-0.5" />
-                                {cap}
+                              <li key={i} className="flex items-center justify-between gap-2 text-sm text-slate-300 bg-industrial-800 p-3 rounded-lg border border-industrial-700/30">
+                                <div className="flex items-center gap-2">
+                                  <ShieldCheck size={14} className="text-indigo-500 shrink-0" />
+                                  <span>{cap}</span>
+                                </div>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shrink-0">
+                                  Socioemocional
+                                </span>
                               </li>
                             ))
                           ) : (

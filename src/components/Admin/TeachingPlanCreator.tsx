@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase/config';
-import { collection, getDocs, query, where, addDoc } from 'firebase/firestore';
-import { generateCriteriaWithMethodology } from '../../features/ai-core/gemini';
+import { collection, getDocs, query, where, addDoc, doc, getDoc } from 'firebase/firestore';
+import { generateCriteriaWithMethodology, generateLearningSituationsAI } from '../../features/ai-core/gemini';
 import { Dropzone } from '../ui/Dropzone';
 import { X, Sparkles, Save, Loader2, Plus, Trash2 } from 'lucide-react';
 
@@ -53,10 +53,10 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
   const [schoolName, setSchoolName] = useState('Escola Técnica Sentry');
   const [unitName, setUnitName] = useState(module.name);
   const [semester, setSemester] = useState('1º Semestre');
-  const [learningContext, setLearningContext] = useState(module.objective || 'Situação de aprendizagem contextualizada na prática industrial.');
+  const [learningContext, setLearningContext] = useState(module.objective || module.objetivo || 'Situação de aprendizagem contextualizada na prática industrial.');
   
-  const [capabilities, setCapabilities] = useState<string[]>(module.technicalCapabilities || []);
-  const [knowledgeList, setKnowledgeList] = useState<string[]>(module.knowledge || []);
+  const [capabilities, setCapabilities] = useState<string[]>(module.technicalCapabilities || module.capacidadesTecnicas || []);
+  const [knowledgeList, setKnowledgeList] = useState<string[]>(module.knowledge || module.conhecimentos || []);
   const [newCap, setNewCap] = useState('');
   const [newKnow, setNewKnow] = useState('');
 
@@ -108,8 +108,26 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
         list.sort((a, b) => a.name.localeCompare(b.name));
         setStudents(list);
 
+        // Fetch teaching plan to load general MSEP capabilities/knowledge as fallbacks
+        const planSnap = await getDoc(doc(db, 'teaching_plans', planId));
+        let msepCapacities: string[] = [];
+        let msepKnowledge: string[] = [];
+        if (planSnap.exists()) {
+          const planData = planSnap.data();
+          if (planData.msep) {
+            msepCapacities = planData.msep.capacidadesTecnicas || [];
+            msepKnowledge = planData.msep.conhecimentos || [];
+          }
+        }
+
+        const initialCaps = module.technicalCapabilities || module.capacidadesTecnicas || (msepCapacities.length > 0 ? msepCapacities : []);
+        const initialKnow = module.knowledge || module.conhecimentos || (msepKnowledge.length > 0 ? msepKnowledge : []);
+
+        setCapabilities(initialCaps);
+        setKnowledgeList(initialKnow);
+
         // Initialize table rows with capabilities from course plan
-        const rows: TableRow[] = (module.technicalCapabilities || []).map(cap => ({
+        const rows: TableRow[] = initialCaps.map(cap => ({
           capability: cap,
           criterion: 'Aguardando geração com IA...',
           studentEvaluations: list.reduce((acc, s) => {
@@ -211,6 +229,21 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
     };
     fetchRubrics();
   }, [isOpen]);
+
+  const [isGeneratingSituation, setIsGeneratingSituation] = useState(false);
+
+  const handleGenerateSituation = async () => {
+    setIsGeneratingSituation(true);
+    try {
+      const situation = await generateLearningSituationsAI(unitName, capabilities, knowledgeList);
+      setLearningContext(situation);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao gerar situação de aprendizagem.');
+    } finally {
+      setIsGeneratingSituation(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -464,7 +497,7 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Capacidades */}
             <div className="bg-industrial-900/50 p-6 rounded-xl border border-industrial-700 space-y-4">
-              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest border-b border-industrial-700 pb-2">2. Capacidades Técnicas / Básicas</h3>
+              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest border-b border-industrial-700 pb-2">2. Fundamentos ou Capacidades Técnicas</h3>
               
               <div className="flex gap-2">
                 <input 
@@ -523,14 +556,35 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
 
           {/* Situação de Aprendizagem */}
           <div className="bg-industrial-900/50 p-6 rounded-xl border border-industrial-700 space-y-4">
-            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest border-b border-industrial-700 pb-2">4. Situação de Aprendizagem</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-industrial-700 pb-2">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">4. Situação de Aprendizagem</h3>
+              <button
+                type="button"
+                onClick={handleGenerateSituation}
+                disabled={isGeneratingSituation || capabilities.length === 0}
+                className="px-4 py-1.5 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-xl font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              >
+                {isGeneratingSituation ? (
+                  <>
+                    <Loader2 className="animate-spin" size={12} />
+                    Sugerindo...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={12} />
+                    Sugerir com IA
+                  </>
+                )}
+              </button>
+            </div>
             <div>
-              <label className="block text-xs uppercase font-bold text-slate-500 mb-1">Descrição / Contexto</label>
+              <label className="block text-xs uppercase font-bold text-slate-500 mb-1">Descrição / Contexto (Editável)</label>
               <textarea 
                 value={learningContext} 
                 onChange={e => setLearningContext(e.target.value)} 
-                rows={3}
-                className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none resize-none"
+                rows={5}
+                className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none resize-y"
+                placeholder="Insira ou gere automaticamente com a IA uma Situação de Aprendizagem contextualizada para o módulo."
               />
             </div>
           </div>
