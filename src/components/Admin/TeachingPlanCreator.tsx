@@ -9,9 +9,13 @@ interface Module {
   name: string;
   hours: number;
   objective?: string;
+  objetivo?: string;
   technicalCapabilities?: string[];
+  capacidadesTecnicas?: string[];
   socioemotionalCapabilities?: string[];
+  capacidadesSocioemocionais?: string[];
   knowledge?: string[];
+  conhecimentos?: string[];
 }
 
 interface Student {
@@ -127,7 +131,7 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
         setKnowledgeList(initialKnow);
 
         // Initialize table rows with capabilities from course plan
-        const rows: TableRow[] = initialCaps.map(cap => ({
+        const rows: TableRow[] = initialCaps.map((cap: string) => ({
           capability: cap,
           criterion: 'Aguardando geração com IA...',
           studentEvaluations: list.reduce((acc, s) => {
