@@ -9,6 +9,7 @@ import { CurricularUnits } from './pages/CurricularUnits';
 import { Schedules } from './pages/Schedules';
 import { ClassEditor } from './pages/ClassEditor';
 import { TeachingPlanEditor } from './pages/TeachingPlanEditor';
+import { EvaluationPanel } from './pages/EvaluationPanel';
 import { AppLayout } from './components/layout/AppLayout';
 import AdminRoute from './components/AdminRoute';
 
@@ -28,6 +29,7 @@ function App() {
           <Route path="/schedules" element={<Schedules />} />
           <Route path="/students" element={<Students />} />
           <Route path="/dossier" element={<Dossier />} />
+          <Route path="/evaluation" element={<EvaluationPanel />} />
           <Route path="/admin" element={<AdminRoute />} />
         </Route>
 

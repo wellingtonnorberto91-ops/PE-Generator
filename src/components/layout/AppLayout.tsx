@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library, Clock, LogOut } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, FileText, FileSignature, Library, Clock, LogOut, Award } from 'lucide-react';
 import { auth } from '../../firebase/config';
 import { signOut } from 'firebase/auth';
 
@@ -88,6 +88,14 @@ export function AppLayout() {
               <>
                 <FileSignature size={18} className={isActive ? "text-primary" : "text-slate-400"} />
                 <span className="font-medium text-sm">Dossiê Digital</span>
+              </>
+            )}
+          </NavLink>
+          <NavLink to="/evaluation" className={navItemClass}>
+            {({ isActive }) => (
+              <>
+                <Award size={18} className={isActive ? "text-primary" : "text-slate-400"} />
+                <span className="font-medium text-sm">Atividades & Lançamentos</span>
               </>
             )}
           </NavLink>

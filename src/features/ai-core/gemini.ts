@@ -643,7 +643,19 @@ export async function generateCriteriaWithMethodology(
   if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
     console.warn('Sentry AI: Chave API ausente. Usando critérios simulados.');
     await new Promise(resolve => setTimeout(resolve, 1500));
-    return capabilities.map(cap => `Critério profissional de avaliação para a capacidade: "${cap}"`);
+    return capabilities.map(cap => {
+      const cleanCap = cap.trim();
+      const lower = cleanCap.toLowerCase();
+      if (lower.startsWith('executar')) return `Executa ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('garantir')) return `Garante ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('desenvolver')) return `Desenvolve ${cleanCap.slice(11).trim()}`;
+      if (lower.startsWith('utilizar')) return `Utiliza ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('analisar')) return `Analisa ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('criar')) return `Cria ${cleanCap.slice(5).trim()}`;
+      if (lower.startsWith('identificar')) return `Identifica ${cleanCap.slice(11).trim()}`;
+      if (lower.startsWith('aplicar')) return `Aplica ${cleanCap.slice(7).trim()}`;
+      return `Demonstra domínio técnico em ${cleanCap.charAt(0).toLowerCase() + cleanCap.slice(1)}`;
+    });
   }
 
   let methodologyInstructions = 'Formule critérios de avaliação pedagógica profissional de alta qualidade correspondentes a cada uma das capacidades acima.';
@@ -658,7 +670,9 @@ ${capabilities.map((cap, i) => `${i + 1}. ${cap}`).join('\n')}
 
 ${methodologyInstructions}
 
-Devolve ESTRITAMENTE um array JSON de strings contendo exatamente a mesma quantidade de critérios correspondentes, na mesma ordem das capacidades enviadas (exemplo: ["Critério 1", "Critério 2"]). Sem formatação markdown, sem tags \`\`\`json ou explicações extras.`;
+Escreva os critérios de forma direta, iniciando com verbos de ação na terceira pessoa (ex: 'Executa', 'Analisa', 'Desenvolve', 'Identifica'), descrevendo de forma concreta a proficiência técnica e operacional esperada. Não inclua os termos "Critério de avaliação de", "Capacidade de", ou prefixos redundantes.
+
+Devolve ESTRITAMENTE um array JSON de strings contendo exatamente a mesma quantidade de critérios correspondentes, na mesma ordem das capacidades enviadas (exemplo: ["Demonstra precisão no manuseio de...", "Analisa criticamente os resultados de..."]). Sem formatação markdown, sem tags \`\`\`json ou explicações extras.`;
 
   try {
     let contents: string | ({ text: string } | { inlineData: { data: string; mimeType: string } })[] = prompt;
@@ -680,7 +694,19 @@ Devolve ESTRITAMENTE um array JSON de strings contendo exatamente a mesma quanti
     return JSON.parse(cleanJson) as string[];
   } catch (error: unknown) {
     console.error('Sentry AI Criteria Error:', error);
-    return capabilities.map(cap => `Critério de avaliação sugerido para: ${cap}`);
+    return capabilities.map(cap => {
+      const cleanCap = cap.trim();
+      const lower = cleanCap.toLowerCase();
+      if (lower.startsWith('executar')) return `Executa ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('garantir')) return `Garante ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('desenvolver')) return `Desenvolve ${cleanCap.slice(11).trim()}`;
+      if (lower.startsWith('utilizar')) return `Utiliza ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('analisar')) return `Analisa ${cleanCap.slice(8).trim()}`;
+      if (lower.startsWith('criar')) return `Cria ${cleanCap.slice(5).trim()}`;
+      if (lower.startsWith('identificar')) return `Identifica ${cleanCap.slice(11).trim()}`;
+      if (lower.startsWith('aplicar')) return `Aplica ${cleanCap.slice(7).trim()}`;
+      return `Demonstra proficiência em ${cleanCap.charAt(0).toLowerCase() + cleanCap.slice(1)}`;
+    });
   }
 }
 
@@ -729,6 +755,65 @@ Seja direto, focado na metodologia por competências. Retorne somente o texto es
   } catch (error: unknown) {
     console.error('Sentry AI Learning Situation Error:', error);
     return mockFallback;
+  }
+}
+
+export interface ExtractedActivity {
+  title: string;
+  description: string;
+  resources: string;
+  expectedResult: string;
+}
+
+export async function generateActivitiesAI(moduleName: string, criteria: string[]): Promise<ExtractedActivity[]> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+  
+  const mockActivities: ExtractedActivity[] = [
+    {
+      title: "Atividade Prática 1: Diagnóstico de Falhas de Causa Raiz",
+      description: "Análise técnica minuciosa de um relatório de incidentes industriais reais, mapeando as variáveis e definindo um fluxograma sistemático de contenção.",
+      resources: "Documentação de processos, simulador de diagramas e guia de conformidade técnica.",
+      expectedResult: "Mapeamento gráfico de causa e efeito com 3 propostas de soluções preventivas estruturadas."
+    },
+    {
+      title: "Atividade Prática 2: Implementação Experimental e Calibração",
+      description: "Montagem prática em bancada ou laboratório virtual integrando as competências operacionais básicas e ajuste fino de tolerância.",
+      resources: "Instrumentos de medição industrial de alta resolução, kits de componentes práticos e roteiro de calibração.",
+      expectedResult: "Protótipo operando nos limites operacionais regulamentados com laudo de ensaio datado."
+    }
+  ];
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return mockActivities;
+  }
+
+  const prompt = `Você é um especialista em educação técnica por competências na metodologia MSEP.
+Temos a Unidade Curricular "${moduleName}".
+Para avaliar se o aluno atingiu os seguintes critérios de avaliação de desempenho:
+${criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+Elabore 2 atividades práticas detalhadas de avaliação formativa e situadas no contexto profissional.
+Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem tags \`\`\`json, sem texto extra):
+[
+  {
+    "title": "Título da Atividade",
+    "description": "Descrição detalhada do desafio prático",
+    "resources": "Recursos e ferramentas necessários",
+    "expectedResult": "Resultado esperado e evidência de entrega"
+  }
+]`;
+
+  try {
+    const result = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+    const responseText = result.text || '';
+    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonMatch = cleanJson.match(/\[[\s\S]*\]/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+    return JSON.parse(cleanJson) as ExtractedActivity[];
+  } catch (error: unknown) {
+    console.error('Sentry AI Activities Error:', error);
+    return mockActivities;
   }
 }
 

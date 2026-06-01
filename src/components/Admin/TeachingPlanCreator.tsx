@@ -3,7 +3,7 @@ import { db } from '../../firebase/config';
 import { collection, getDocs, query, where, addDoc, doc, getDoc } from 'firebase/firestore';
 import { generateCriteriaWithMethodology, generateLearningSituationsAI } from '../../features/ai-core/gemini';
 import { Dropzone } from '../ui/Dropzone';
-import { X, Sparkles, Save, Loader2, Plus, Trash2 } from 'lucide-react';
+import { X, Sparkles, Save, Loader2, Plus, Trash2, ClipboardList } from 'lucide-react';
 
 interface Module {
   name: string;
@@ -97,6 +97,66 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
   const [selectedReusableRubricId, setSelectedReusableRubricId] = useState('');
   const [savingRubric, setSavingRubric] = useState(false);
 
+  const [generatingComplete, setGeneratingComplete] = useState(false);
+
+  const handleGenerateCompletePlan = async (customCaps?: string[], customKnows?: string[], customStudents?: Student[]) => {
+    const capsToUse = customCaps || capabilities;
+    const knowsToUse = customKnows || knowledgeList;
+    const studentsToUse = customStudents || students;
+
+    if (capsToUse.length === 0) {
+      return;
+    }
+    setGeneratingComplete(true);
+    setError('');
+    try {
+      // 1. Gerar Situação de Aprendizagem
+      const situationPromise = generateLearningSituationsAI(unitName, capsToUse, knowsToUse);
+      
+      // 2. Gerar Critérios de Avaliação
+      let existingMethodologyText = '';
+      if (methodologySource === 'database' && selectedExistingPlanId) {
+        const found = existingPlans.find(p => p.id === selectedExistingPlanId);
+        if (found) {
+          existingMethodologyText = found.text;
+        }
+      }
+      
+      const criteriaPromise = generateCriteriaWithMethodology(
+        methodologySource === 'upload' ? pdfFile : null,
+        capsToUse,
+        existingMethodologyText
+      );
+
+      // Executar requisições em paralelo para máxima performance
+      const [situation, generatedCriteria] = await Promise.all([situationPromise, criteriaPromise]);
+
+      setLearningContext(situation);
+
+      // Atualizar as linhas da tabela mantendo as avaliações dos alunos existentes se houver
+      setTableRows(prevRows => {
+        const currentEvals = prevRows.reduce((acc, row) => {
+          acc[row.capability] = row.studentEvaluations;
+          return acc;
+        }, {} as Record<string, Record<string, string>>);
+
+        return capsToUse.map((cap: string, idx: number) => ({
+          capability: cap,
+          criterion: generatedCriteria[idx] || 'Critério gerado com sucesso.',
+          studentEvaluations: currentEvals[cap] || studentsToUse.reduce((acc, s) => {
+            acc[s.id] = '';
+            return acc;
+          }, {} as Record<string, string>)
+        }));
+      });
+    } catch (e) {
+      setError('Erro ao gerar o plano completo com a IA.');
+      console.error(e);
+    } finally {
+      setGeneratingComplete(false);
+    }
+  };
+
   // Fetch students of this class
   useEffect(() => {
     if (!isOpen || !planId) return;
@@ -140,6 +200,11 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
           }, {} as Record<string, string>)
         }));
         setTableRows(rows);
+
+        // Trigger auto-generation automatically on modal open
+        if (initialCaps.length > 0) {
+          handleGenerateCompletePlan(initialCaps, initialKnow, list);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -458,9 +523,26 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
               <p className="text-xs text-slate-400 mt-1">{courseName} → <span className="text-primary font-semibold">{module.name}</span></p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-industrial-700 rounded-lg text-slate-400 hover:text-white transition-colors">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            {generatingComplete ? (
+              <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-xl text-xs font-bold animate-pulse">
+                <Loader2 className="animate-spin" size={12} />
+                <span>Sentry AI Gerando Plano...</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleGenerateCompletePlan()}
+                disabled={capabilities.length === 0}
+                className="px-4 py-1.5 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <Sparkles size={12} />
+                Regenerar Plano por IA
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 hover:bg-industrial-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Container */}
@@ -545,14 +627,17 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                 {knowledgeList.map((know, i) => (
-                  <span key={i} className="flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs">
-                    {know}
-                    <button onClick={() => handleRemoveKnow(i)} className="text-indigo-400 hover:text-indigo-200">
-                      &times;
+                  <div key={i} className="flex justify-between items-center bg-industrial-900 p-2.5 rounded-lg border border-industrial-700 text-xs text-slate-300">
+                    <span className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                      <span>{know}</span>
+                    </span>
+                    <button onClick={() => handleRemoveKnow(i)} className="text-red-500 hover:text-red-400 transition-colors shrink-0">
+                      <Trash2 size={14} />
                     </button>
-                  </span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -592,126 +677,134 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
               />
             </div>
           </div>
-          {/* Metodologia de IA Baseada em PDF ou Banco de Dados */}
-          <div className="bg-industrial-900/50 p-6 rounded-xl border border-industrial-700 space-y-5">
-            <div className="border-b border-industrial-700 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* 5. Tabela de Avaliação Formativa & Critérios */}
+          <div className="bg-industrial-900/50 p-6 rounded-xl border border-industrial-700 space-y-6 overflow-hidden">
+            <div className="flex justify-between items-center border-b border-industrial-700 pb-2">
               <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                <Sparkles size={16} className="text-primary animate-pulse" />
-                5. Metodologia de Referência & Critérios por IA
+                <ClipboardList className="text-primary" size={16} />
+                5. Tabela de Avaliação Formativa & Critérios (Campos Editáveis)
               </h3>
-              
-              {/* Botões de Seleção da Fonte (Abas Brutalistas) */}
-              <div className="flex bg-industrial-950 p-1 rounded-lg border border-industrial-700 self-start">
-                <button
-                  type="button"
-                  onClick={() => setMethodologySource('upload')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${methodologySource === 'upload' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  Upload de PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMethodologySource('database')}
-                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${methodologySource === 'database' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                >
-                  Metodologia Salva
-                </button>
-              </div>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono">Total de Alunos: {students.length}</span>
             </div>
-            
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {methodologySource === 'upload' 
-                ? 'Faça upload do documento de metodologia pedagógica da instituição (ex: MSEP) para que a inteligência artificial formule critérios de avaliação alinhados exatamente às capacidades desejadas.'
-                : 'Selecione uma metodologia e critérios pedagógicos que já foram aplicados com sucesso em outro plano de ensino no banco de dados.'
-              }
-            </p>
-            {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-              <div className="md:col-span-2 space-y-4">
-                {methodologySource === 'upload' ? (
-                  pdfFile ? (
-                    <div className="p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center font-bold text-primary text-xs uppercase">PDF</div>
-                        <div>
-                          <p className="text-sm font-medium text-white">{pdfFile.name}</p>
-                          <p className="text-xs text-slate-500 font-mono">{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+            {/* Painel de Metodologia de Referência & Customização Opcional */}
+            <details className="group bg-industrial-950/40 border border-industrial-750 rounded-xl overflow-hidden print:hidden">
+              <summary className="flex justify-between items-center p-3.5 cursor-pointer font-bold text-xs uppercase text-slate-400 hover:text-white select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-primary group-open:animate-spin" />
+                  Refinar Metodologia de Critérios com IA (Opcional)
+                </span>
+                <span className="text-[10px] text-primary group-open:hidden">Expandir Configurações</span>
+                <span className="text-[10px] text-slate-500 hidden group-open:inline">Recolher Configurações</span>
+              </summary>
+              <div className="p-4 border-t border-industrial-750 bg-industrial-900/10 space-y-4">
+                <div className="border-b border-industrial-700 pb-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <span className="text-xs text-slate-300">Escolha a origem da metodologia de referência para o Gemini gerar critérios alinhados:</span>
+                  
+                  {/* Botões de Seleção da Fonte (Abas Brutalistas) */}
+                  <div className="flex bg-industrial-950 p-1 rounded-lg border border-industrial-700">
+                    <button
+                      type="button"
+                      onClick={() => setMethodologySource('upload')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${methodologySource === 'upload' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Upload de PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMethodologySource('database')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${methodologySource === 'database' ? 'bg-primary text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Metodologia Salva
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Os critérios de avaliação são gerados automaticamente para cada capacidade com base nos princípios da MSEP. Você pode refinar a geração fazendo o upload de um documento de referência (ex: MSEP PDF) ou selecionando uma metodologia anterior do banco de dados.
+                </p>
+                {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                  <div className="md:col-span-2 space-y-4">
+                    {methodologySource === 'upload' ? (
+                      pdfFile ? (
+                        <div className="p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center font-bold text-primary text-xs uppercase">PDF</div>
+                            <div>
+                              <p className="text-sm font-medium text-white">{pdfFile.name}</p>
+                              <p className="text-xs text-slate-500 font-mono">{(pdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                          </div>
+                          <button onClick={() => setPdfFile(null)} className="text-xs text-red-400 hover:text-red-300 underline font-semibold">Excluir</button>
                         </div>
-                      </div>
-                      <button onClick={() => setPdfFile(null)} className="text-xs text-red-400 hover:text-red-300 underline font-semibold">Excluir</button>
-                    </div>
-                  ) : (
-                    <Dropzone 
-                      onDrop={files => setPdfFile(files[0] || null)}
-                      accept={{ 'application/pdf': ['.pdf'] }}
-                      label="Arraste o PDF de Metodologia Pedagógica para Referência da IA"
-                    />
-                  )
-                ) : (
-                  <div className="space-y-3">
-                    {loadingExistingPlans ? (
-                      <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
-                        <Loader2 className="animate-spin text-primary" size={16} />
-                        Carregando metodologias do banco...
-                      </div>
-                    ) : existingPlans.length === 0 ? (
-                      <p className="text-xs text-amber-500 italic">Nenhum plano anterior com metodologia encontrado no banco de dados.</p>
+                      ) : (
+                        <Dropzone 
+                          onDrop={files => setPdfFile(files[0] || null)}
+                          accept={{ 'application/pdf': ['.pdf'] }}
+                          label="Arraste o PDF de Metodologia Pedagógica para Referência da IA"
+                        />
+                      )
                     ) : (
                       <div className="space-y-3">
-                        <div>
-                          <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Escolha o Plano de Referência</label>
-                          <select
-                            value={selectedExistingPlanId}
-                            onChange={e => setSelectedExistingPlanId(e.target.value)}
-                            className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
-                          >
-                            {existingPlans.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {/* Preview da metodologia selecionada */}
-                        <div className="p-3 bg-industrial-950 border border-industrial-700/60 rounded-lg max-h-32 overflow-y-auto text-[11px] text-slate-400 font-mono custom-scrollbar">
-                          <p className="font-semibold text-slate-300 mb-1">Visualização do Contexto:</p>
-                          <pre className="whitespace-pre-wrap">{existingPlans.find(p => p.id === selectedExistingPlanId)?.text || 'Nenhum contexto disponível.'}</pre>
-                        </div>
+                        {loadingExistingPlans ? (
+                          <div className="flex items-center gap-2 py-3 text-xs text-slate-400">
+                            <Loader2 className="animate-spin text-primary" size={16} />
+                            Carregando metodologias do banco...
+                          </div>
+                        ) : existingPlans.length === 0 ? (
+                          <p className="text-xs text-amber-500 italic">Nenhum plano anterior com metodologia encontrado no banco de dados.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Escolha o Plano de Referência</label>
+                              <select
+                                value={selectedExistingPlanId}
+                                onChange={e => setSelectedExistingPlanId(e.target.value)}
+                                className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                              >
+                                {existingPlans.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {/* Preview da metodologia selecionada */}
+                            <div className="p-3 bg-industrial-950 border border-industrial-700/60 rounded-lg max-h-32 overflow-y-auto text-[11px] text-slate-400 font-mono custom-scrollbar">
+                              <p className="font-semibold text-slate-300 mb-1">Visualização do Contexto:</p>
+                              <pre className="whitespace-pre-wrap">{existingPlans.find(p => p.id === selectedExistingPlanId)?.text || 'Nenhum contexto disponível.'}</pre>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              <div className="md:pt-5">
-                <button
-                  onClick={handleGenerateCriteria}
-                  disabled={generating || capabilities.length === 0 || (methodologySource === 'upload' && !pdfFile) || (methodologySource === 'database' && !selectedExistingPlanId)}
-                  className="w-full py-4 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 className="animate-spin" size={16} />
-                      Estruturando Critérios...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      Gerar Critérios com IA
-                    </>
-                  )}
-                </button>
+                  <div className="md:pt-5">
+                    <button
+                      type="button"
+                      onClick={handleGenerateCriteria}
+                      disabled={generating || capabilities.length === 0 || (methodologySource === 'upload' && !pdfFile) || (methodologySource === 'database' && !selectedExistingPlanId)}
+                      className="w-full py-4 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 className="animate-spin" size={16} />
+                          Estruturando Critérios...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={16} />
+                          Gerar Critérios com IA
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Tabela de Avaliação Formativa */}
-          <div className="bg-industrial-900/50 p-6 rounded-xl border border-industrial-700 space-y-4 overflow-hidden">
-            <div className="flex justify-between items-center border-b border-industrial-700 pb-2">
-              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">6. Tabela de Avaliação Formativa (Campos Editáveis)</h3>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono">Total de Alunos: {students.length}</span>
-            </div>
+            </details>
 
             {loadingStudents ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -785,7 +878,7 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
               <div>
                 <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
                   <Sparkles size={16} className="text-primary animate-pulse" />
-                  7. Níveis de Desempenho (Rubrica Personalizável)
+                  6. Níveis de Desempenho (Rubrica Personalizável)
                 </h3>
                 <p className="text-[10px] text-slate-400 mt-1">Configure, edite ou salve modelos de rubrica para reutilização.</p>
               </div>
