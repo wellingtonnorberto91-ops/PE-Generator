@@ -66,7 +66,11 @@ export function EvaluationPanel() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deliveries, setDeliveries] = useState<StudentDelivery[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'atividades' | 'lancamentos' | 'kpis' | 'relatorios'>('atividades');
+  const [activeTab, setActiveTab] = useState<'atividades' | 'lancamentos' | 'kpis' | 'relatorios' | 'plano'>('atividades');
+  const [activeAssessmentPlan, setActiveAssessmentPlan] = useState<any | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState(false);
+  const [activeReportType, setActiveReportType] = useState<'plano' | 'geral' | 'individual' | 'dossie' | 'criterios' | null>(null);
+  const [selectedStudentForReport, setSelectedStudentForReport] = useState<string>('');
   
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -124,11 +128,12 @@ export function EvaluationPanel() {
     fetchPlanDetails();
   }, [selectedClassId]);
 
-  // Load students & activities & deliveries
+  // Load students & activities & deliveries & assessment plan
   useEffect(() => {
     if (!selectedClassId || !selectedPlanDetails) return;
     const fetchStudentsAndData = async () => {
       setLoadingStudents(true);
+      setLoadingPlan(true);
       try {
         // 1. Fetch Students
         const q = query(collection(db, 'students'), where('classId', '==', selectedClassId));
@@ -152,10 +157,27 @@ export function EvaluationPanel() {
           setActivities([]);
           setDeliveries([]);
         }
+
+        // 3. Fetch correspondente da coleção assessments_formativa
+        const activeModule = selectedPlanDetails.modules[selectedModuleIndex];
+        const activeModuleName = activeModule?.name || '';
+        const qPlan = query(
+          collection(db, 'assessments_formativa'), 
+          where('planId', '==', selectedClassId),
+          where('unitName', '==', activeModuleName)
+        );
+        const snapPlan = await getDocs(qPlan);
+        if (!snapPlan.empty) {
+          const docPlan = snapPlan.docs[0];
+          setActiveAssessmentPlan({ id: docPlan.id, ...docPlan.data() });
+        } else {
+          setActiveAssessmentPlan(null);
+        }
       } catch (e) {
         console.error("Erro ao carregar dados", e);
       } finally {
         setLoadingStudents(false);
+        setLoadingPlan(false);
       }
     };
     fetchStudentsAndData();
@@ -325,6 +347,64 @@ export function EvaluationPanel() {
     }
   };
 
+  // Sincronização Inteligente: Notas de Atividades -> Critérios do Plano de Ensino
+  const handleSyncActivitiesToCriteria = async () => {
+    if (!activeAssessmentPlan || activities.length === 0 || students.length === 0) {
+      alert("Nenhum plano de ensino ou atividades de avaliação encontradas para sincronizar.");
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const updatedTableRows = [...activeAssessmentPlan.tableRows];
+      
+      students.forEach(student => {
+        const studentDels = deliveries.filter(d => d.studentId === student.id);
+        if (studentDels.length === 0) return;
+        
+        let sumGrades = 0;
+        let count = 0;
+        studentDels.forEach(d => {
+          sumGrades += d.grade || 0;
+          count++;
+        });
+        
+        const avg = count > 0 ? sumGrades / count : 0;
+        
+        let concept: 'S' | 'NS' | 'D' | '' = '';
+        if (avg >= 85) {
+          concept = 'D';
+        } else if (avg >= 50) {
+          concept = 'S';
+        } else {
+          concept = 'NS';
+        }
+        
+        updatedTableRows.forEach(row => {
+          if (!row.studentEvaluations) {
+            row.studentEvaluations = {};
+          }
+          row.studentEvaluations[student.id] = concept;
+        });
+      });
+      
+      const planDocRef = doc(db, 'assessments_formativa', activeAssessmentPlan.id);
+      await setDoc(planDocRef, {
+        ...activeAssessmentPlan,
+        tableRows: updatedTableRows,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      setActiveAssessmentPlan((prev: any) => prev ? { ...prev, tableRows: updatedTableRows } : null);
+      alert("Tabela de critérios do plano de ensino alimentada com as avaliações dos alunos com sucesso!");
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao sincronizar dados de avaliação com a tabela de critérios.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // KPI Calculations
   const kpis = useMemo(() => {
     if (students.length === 0 || activities.length === 0) {
@@ -373,11 +453,6 @@ export function EvaluationPanel() {
     };
   }, [students, activities, deliveries]);
 
-  // Print Report
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div className="space-y-6 print:space-y-4">
       {/* Hidden File Input for mock uploads */}
@@ -389,94 +464,460 @@ export function EvaluationPanel() {
         accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
       />
 
-      {/* ── PRINTING REPORT TEMPLATE ── */}
-      <div className="hidden print:block print:bg-white print:text-black p-4">
-        <div className="flex justify-between items-center border-b border-gray-400 pb-3 mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Relatório Acadêmico de Atividades</h1>
-            <p className="text-xs text-gray-600 mt-1">PE Generator & Sentry AI • SENAI Metodologia por Competências</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-semibold">Turma: {selectedPlanDetails?.name}</p>
-            <p className="text-[10px] text-gray-500">Unidade: {activeModule?.name}</p>
-          </div>
-        </div>
+      {/* ── PRINTING REPORT TEMPLATES (CONDITIONAL FOR PAPER) ── */}
+      <div className="hidden print:block print:bg-white print:text-black p-6 w-full">
+        
+        {/* TEMPLATE 1: RELATÓRIO GERAL DA TURMA */}
+        {activeReportType === 'geral' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
+              <div>
+                <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">Ficha Pedagógica de Rendimento Geral</h1>
+                <p className="text-xs text-gray-600 mt-1">PE Generator • SENAI Metodologia por Competências (MSEP)</p>
+              </div>
+              <div className="text-right text-xs font-mono">
+                <p className="font-bold">Turma: {selectedPlanDetails?.name}</p>
+                <p className="text-gray-600">Módulo/UC: {activeModule?.name}</p>
+              </div>
+            </div>
 
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-gray-800 uppercase mb-3">1. Atividades Avaliativas Desenvolvidas</h3>
-            <table className="w-full text-left text-xs border border-gray-300 border-collapse">
-              <thead>
-                <tr className="bg-gray-150 border-b border-gray-300">
-                  <th className="p-2 border-r border-gray-300 font-bold">Título</th>
-                  <th className="p-2 border-r border-gray-300 font-bold">Descrição</th>
-                  <th className="p-2 font-bold">Critério / Evidência</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activities.map((a, idx) => (
-                  <tr key={idx} className="border-b border-gray-300">
-                    <td className="p-2 border-r border-gray-300 font-semibold">{a.title}</td>
-                    <td className="p-2 border-r border-gray-300">{a.description}</td>
-                    <td className="p-2">{a.expectedResult}</td>
+            {/* KPIs */}
+            <div className="grid grid-cols-3 gap-4 border border-gray-300 p-4 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-bold text-gray-500">Média Geral da Turma</p>
+                <p className="text-xl font-bold text-gray-900 mt-1 font-mono">{kpis.avgGrade} pts</p>
+              </div>
+              <div className="text-center border-x border-gray-300">
+                <p className="text-[10px] uppercase font-bold text-gray-500">Taxa de Satisfação</p>
+                <p className="text-xl font-bold text-gray-900 mt-1 font-mono">{kpis.successRate}%</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] uppercase font-bold text-gray-500">Suporte Pedagógico</p>
+                <p className="text-xl font-bold text-red-600 mt-1 font-mono">{kpis.needsSupport.length} Alunos</p>
+              </div>
+            </div>
+
+            {/* Tabela de Notas Consolidadas */}
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-bold text-gray-800">1. Desempenho Geral dos Alunos</h3>
+              <table className="w-full text-left text-[11px] border border-gray-300 border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                    <th className="p-2 border-r border-gray-300 w-1/3">Aluno</th>
+                    <th className="p-2 border-r border-gray-300 w-24">RA</th>
+                    {activities.map(a => (
+                      <th key={a.id} className="p-2 border-r border-gray-300 text-center">{a.title.split(':')[0]}</th>
+                    ))}
+                    <th className="p-2 text-center">Aproveitamento</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {students.map((s, idx) => {
+                    const sDels = deliveries.filter(d => d.studentId === s.id);
+                    const sSatisfied = sDels.filter(d => d.evaluation === 'S' || d.evaluation === 'D').length;
+                    const sTotal = sDels.length;
+                    const percent = sTotal > 0 ? Math.round((sSatisfied / sTotal) * 100) : 0;
+                    return (
+                      <tr key={idx} className="border-b border-gray-300">
+                        <td className="p-2 border-r border-gray-300 font-medium text-gray-900">{s.name}</td>
+                        <td className="p-2 border-r border-gray-300 font-mono">{s.ra}</td>
+                        {activities.map(a => {
+                          const del = deliveries.find(d => d.studentId === s.id && d.activityId === a.id);
+                          return (
+                            <td key={a.id} className="p-2 border-r border-gray-300 text-center font-bold font-mono">
+                              {del?.evaluation || '-'} <span className="text-[9px] text-gray-500 font-normal">({del?.grade || 0} pts)</span>
+                            </td>
+                          );
+                        })}
+                        <td className="p-2 text-center font-bold font-mono">{percent}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Assinaturas */}
+            <div className="mt-12 pt-8 border-t border-gray-300 flex justify-between text-xs">
+              <div>
+                <p className="text-gray-500">Docente Responsável</p>
+                <div className="mt-8 border-b border-gray-400 w-64" />
+                <p className="mt-1 font-bold">Prof. Wellington</p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-500">Data de Emissão: {new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
           </div>
+        )}
 
-          <div>
-            <h3 className="text-sm font-bold text-gray-800 uppercase mb-3">2. Grade de Resultados dos Alunos</h3>
-            <table className="w-full text-left text-[11px] border border-gray-300 border-collapse">
-              <thead>
-                <tr className="bg-gray-150 border-b border-gray-300">
-                  <th className="p-2 border-r border-gray-300 font-bold">Aluno</th>
-                  <th className="p-2 border-r border-gray-300 font-bold">RA</th>
-                  {activities.map(a => (
-                    <th key={a.id} className="p-2 border-r border-gray-300 font-bold text-center">{a.title.split(':')[0]}</th>
-                  ))}
-                  <th className="p-2 font-bold text-center">Desempenho Geral</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s, sIdx) => {
-                  const sDels = deliveries.filter(d => d.studentId === s.id);
-                  const sSatisfied = sDels.filter(d => d.evaluation === 'S' || d.evaluation === 'D').length;
-                  const sTotal = sDels.length;
-                  const isOk = sTotal > 0 ? (sSatisfied / sTotal) >= 0.7 : false;
+        {/* TEMPLATE 2: BOLETIM INDIVIDUAL DO ALUNO */}
+        {activeReportType === 'individual' && (() => {
+          const student = students.find(s => s.id === selectedStudentForReport);
+          if (!student) return <p className="text-center py-8">Nenhum aluno selecionado.</p>;
+          const studentDels = deliveries.filter(d => d.studentId === student.id);
+          const studentPlanRows = activeAssessmentPlan?.tableRows || [];
+          
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
+                <div>
+                  <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">Ficha Individual de Avaliação Formativa</h1>
+                  <p className="text-xs text-gray-600 mt-1">PE Generator • SENAI Acompanhamento de Rendimento Individual</p>
+                </div>
+                <div className="text-right text-xs">
+                  <p className="font-bold">Turma: {selectedPlanDetails?.name}</p>
+                  <p className="text-gray-600">Módulo/UC: {activeModule?.name}</p>
+                </div>
+              </div>
 
-                  return (
-                    <tr key={sIdx} className="border-b border-gray-300">
-                      <td className="p-2 border-r border-gray-300 font-medium">{s.name}</td>
-                      <td className="p-2 border-r border-gray-300 font-mono text-[10px]">{s.ra}</td>
+              {/* Identificação Aluno */}
+              <div className="grid grid-cols-2 gap-4 border border-gray-300 p-4 bg-gray-50 rounded-lg text-xs">
+                <div><strong>Nome do Estudante:</strong> <span className="text-gray-900 font-bold">{student.name}</span></div>
+                <div><strong>Registro Acadêmico (RA):</strong> <span className="text-gray-900 font-mono font-bold">{student.ra}</span></div>
+              </div>
+
+              {/* Status de Critérios */}
+              <div className="space-y-3">
+                <h3 className="text-xs uppercase font-bold text-gray-800">1. Desempenho nos Critérios Pedagógicos (MSEP)</h3>
+                <table className="w-full text-left text-[11px] border border-gray-300 border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                      <th className="p-2 border-r border-gray-300 w-1/2 font-bold">Capacidade Técnica</th>
+                      <th className="p-2 border-r border-gray-300 font-bold">Critério Formulado</th>
+                      <th className="p-2 text-center w-24 font-bold">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentPlanRows.map((row: any, idx: number) => {
+                      const concept = row.studentEvaluations?.[student.id] || '-';
+                      const conceptLabels: Record<string, string> = {
+                        'D': 'Destaque',
+                        'S': 'Satisfatório',
+                        'NS': 'Não Satisfatório'
+                      };
+                      return (
+                        <tr key={idx} className="border-b border-gray-300">
+                          <td className="p-2 border-r border-gray-300 font-medium text-gray-900 leading-tight">{row.capability}</td>
+                          <td className="p-2 border-r border-gray-300 text-gray-700 leading-tight">{row.criterion}</td>
+                          <td className="p-2 text-center font-bold font-mono text-gray-900">{conceptLabels[concept] || 'A avaliar'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Atividades Práticas de Laboratório */}
+              <div className="space-y-3">
+                <h3 className="text-xs uppercase font-bold text-gray-800">2. Notas Obtidas nos Desafios Práticos</h3>
+                <table className="w-full text-left text-[11px] border border-gray-300 border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                      <th className="p-2 border-r border-gray-300 w-1/2 font-bold">Título da Atividade Prática</th>
+                      <th className="p-2 border-r border-gray-300 text-center w-32 font-bold">Conceito</th>
+                      <th className="p-2 text-center w-28 font-bold">Nota Obtida</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activities.map((a, idx) => {
+                      const del = studentDels.find(d => d.activityId === a.id);
+                      return (
+                        <tr key={idx} className="border-b border-gray-300">
+                          <td className="p-2 border-r border-gray-300 font-medium text-gray-900">{a.title}</td>
+                          <td className="p-2 border-r border-gray-300 text-center">{del?.evaluation === 'D' ? 'Destaque' : del?.evaluation === 'S' ? 'Satisfatório' : del?.evaluation === 'NS' ? 'Não Sat.' : '-'}</td>
+                          <td className="p-2 text-center font-bold font-mono">{del?.grade || 0} / 100 pts</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Parecer Descritivo e Assinaturas */}
+              <div className="border border-gray-300 p-4 rounded-lg space-y-3">
+                <p className="text-xs font-bold uppercase text-gray-700">3. Parecer Descritivo Pedagógico</p>
+                <div className="h-20 border-b border-dashed border-gray-400 w-full" />
+              </div>
+
+              <div className="mt-12 pt-8 border-t border-gray-300 grid grid-cols-2 gap-8 text-xs">
+                <div>
+                  <p className="text-gray-500">Assinatura do Docente</p>
+                  <div className="mt-8 border-b border-gray-400 w-full" />
+                  <p className="mt-1 font-bold">Prof. Wellington</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Assinatura do Estudante</p>
+                  <div className="mt-8 border-b border-gray-400 w-full" />
+                  <p className="mt-1 font-bold">{student.name}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TEMPLATE 3: DOSSIÊ DE EVIDÊNCIAS DIGITAL */}
+        {activeReportType === 'dossie' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
+              <div>
+                <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">Dossiê Digital de Evidências Técnicas</h1>
+                <p className="text-xs text-gray-600 mt-1">PE Generator • SENAI Registro de Entregáveis e Arquivos Operacionais</p>
+              </div>
+              <div className="text-right text-xs">
+                <p className="font-bold">Turma: {selectedPlanDetails?.name}</p>
+                <p className="text-gray-600">Módulo/UC: {activeModule?.name}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs uppercase font-bold text-gray-800">1. Lista de Evidências e Arquivos por Estudante</h3>
+              <table className="w-full text-left text-[10px] border border-gray-300 border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                    <th className="p-2 border-r border-gray-300 w-1/4 font-bold">Aluno</th>
+                    <th className="p-2 border-r border-gray-300 w-24 font-bold">RA</th>
+                    {activities.map(a => (
+                      <th key={a.id} className="p-2 border-r border-gray-300 text-center w-48 font-bold">{a.title.split(':')[0]}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s, idx) => (
+                    <tr key={idx} className="border-b border-gray-300">
+                      <td className="p-2 border-r border-gray-300 font-medium text-gray-900">{s.name}</td>
+                      <td className="p-2 border-r border-gray-300 font-mono">{s.ra}</td>
                       {activities.map(a => {
                         const del = deliveries.find(d => d.studentId === s.id && d.activityId === a.id);
                         return (
-                          <td key={a.id} className="p-2 border-r border-gray-300 text-center font-bold">
-                            {del?.evaluation || '-'} <span className="text-[10px] text-gray-500 font-normal">({del?.grade || 0} pts)</span>
+                          <td key={a.id} className="p-2 border-r border-gray-300 align-middle">
+                            {del?.fileName ? (
+                              <div className="space-y-1">
+                                <p className="font-semibold text-gray-800 truncate" title={del.fileName}>{del.fileName}</p>
+                                <p className="text-[8px] text-gray-500 font-mono">Status: Entregue ({del.grade} pts)</p>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">Nenhum anexo</span>
+                            )}
                           </td>
                         );
                       })}
-                      <td className={`p-2 text-center font-bold ${isOk ? 'text-green-600' : 'text-red-600'}`}>
-                        {sTotal > 0 ? `${Math.round((sSatisfied / sTotal) * 100)}% Sat.` : 'N/A'}
-                      </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        <div className="mt-12 pt-8 border-t border-gray-300 flex justify-between text-xs">
-          <div>
-            <p className="text-gray-500">Docente Responsável</p>
-            <div className="mt-8 border-b border-gray-400 w-64" />
+            <div className="mt-12 pt-8 border-t border-gray-300 flex justify-between text-xs">
+              <div>
+                <p className="text-gray-500">Assinatura da Supervisão Pedagógica</p>
+                <div className="mt-8 border-b border-gray-400 w-64" />
+              </div>
+              <div className="text-right">
+                <p className="text-gray-500">Data de Geração: {new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-gray-500">Data de Emissão: {new Date().toLocaleDateString()}</p>
+        )}
+
+        {/* TEMPLATE 4: REGISTRO DE CRITÉRIOS INTEGRADOS */}
+        {activeReportType === 'criterios' && activeAssessmentPlan && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
+              <div>
+                <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">Registro de Critérios de Avaliação MSEP</h1>
+                <p className="text-xs text-gray-600 mt-1">PE Generator • SENAI Relatório de Avaliação por Capacidade</p>
+              </div>
+              <div className="text-right text-xs">
+                <p className="font-bold">Turma: {selectedPlanDetails?.name}</p>
+                <p className="text-gray-600">Módulo/UC: {activeModule?.name}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs uppercase font-bold text-gray-800">1. Matriz de Avaliação Formativa de Critérios</h3>
+              <table className="w-full text-left text-[10px] border border-gray-300 border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                    <th className="p-2 border-r border-gray-300 w-1/4 font-bold">Capacidade Pedagógica</th>
+                    <th className="p-2 border-r border-gray-300 w-1/3 font-bold">Critério de Desempenho</th>
+                    {students.map(s => (
+                      <th key={s.id} className="p-2 border-r border-gray-300 text-center font-bold text-[9px] truncate max-w-[60px]" title={s.name}>
+                        {s.name.split(' ')[0]}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeAssessmentPlan.tableRows.map((row: any, rIdx: number) => (
+                    <tr key={rIdx} className="border-b border-gray-300">
+                      <td className="p-2 border-r border-gray-300 font-medium text-gray-900 leading-tight">{row.capability}</td>
+                      <td className="p-2 border-r border-gray-300 text-gray-700 leading-tight">{row.criterion}</td>
+                      {students.map(s => {
+                        const val = row.studentEvaluations?.[s.id] || '-';
+                        return (
+                          <td key={s.id} className="p-2 border-r border-gray-300 text-center font-bold font-mono text-gray-800">
+                            {val}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Legendas */}
+            <div className="border border-gray-300 p-3 rounded-lg text-[9px] font-mono space-y-1 bg-gray-50">
+              <p className="font-bold text-gray-800">Legenda de Conceitos da Metodologia MSEP:</p>
+              <p><strong>D</strong>: Destaque (Aproveitamento superior a 85% e domínio autônomo da capacidade)</p>
+              <p><strong>S</strong>: Satisfatório (Aproveitamento de 50% a 84% com domínio básico da capacidade)</p>
+              <p><strong>NS</strong>: Não Satisfatório (Aproveitamento inferior a 50%, necessitando suporte pedagógico)</p>
+            </div>
+
+            <div className="mt-12 pt-8 border-t border-gray-300 flex justify-between text-xs">
+              <div>
+                <p className="text-gray-500">Docente Responsável</p>
+                <div className="mt-8 border-b border-gray-400 w-64" />
+                <p className="mt-1 font-bold">Prof. Wellington</p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-500">Data: ____/____/_______</p>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* TEMPLATE 5: PLANO DE ENSINO COMPLETO */}
+        {activeReportType === 'plano' && activeAssessmentPlan && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
+              <div>
+                <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">Plano de Ensino por Competências (MSEP)</h1>
+                <p className="text-xs text-gray-600 mt-1 font-medium">SENAI • Educação Profissional • {activeAssessmentPlan.schoolName}</p>
+              </div>
+              <div className="text-right text-xs">
+                <p className="font-bold">Curso: {activeAssessmentPlan.courseName}</p>
+                <p className="text-gray-600">Semestre: {activeAssessmentPlan.semester}</p>
+              </div>
+            </div>
+
+            {/* Identificação */}
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-bold text-gray-800">1. Identificação da Unidade Curricular</h3>
+              <table className="w-full text-xs border border-gray-300 border-collapse">
+                <tbody>
+                  <tr className="border-b border-gray-300">
+                    <td className="p-2 bg-gray-50 font-bold w-1/4">Unidade Curricular:</td>
+                    <td className="p-2 w-1/4">{activeAssessmentPlan.unitName}</td>
+                    <td className="p-2 bg-gray-50 font-bold w-1/4">Semestre:</td>
+                    <td className="p-2 w-1/4">{activeAssessmentPlan.semester}</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 bg-gray-50 font-bold w-1/4">Docente:</td>
+                    <td className="p-2 w-1/4">Prof. Wellington</td>
+                    <td className="p-2 bg-gray-50 font-bold w-1/4">Eixo Temático:</td>
+                    <td className="p-2 w-1/4">{activeAssessmentPlan.subjectName || activeAssessmentPlan.unitName}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Fundamentos e Conhecimentos */}
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <h3 className="text-xs uppercase font-bold text-gray-800">2. Capacidades Técnicas</h3>
+                <ul className="text-xs space-y-1 list-disc list-inside text-gray-700">
+                  {activeAssessmentPlan.capabilities.map((c: string, idx: number) => (
+                    <li key={idx}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xs uppercase font-bold text-gray-800">3. Conhecimentos</h3>
+                <ul className="text-xs space-y-1 list-disc list-inside text-gray-700">
+                  {activeAssessmentPlan.knowledgeList.map((k: string, idx: number) => (
+                    <li key={idx}>{k}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Situação de Aprendizagem */}
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-bold text-gray-800">4. Situação de Aprendizagem</h3>
+              <div className="text-xs text-gray-700 border border-gray-300 p-3 bg-gray-50 rounded leading-relaxed">
+                {activeAssessmentPlan.learningContext}
+              </div>
+            </div>
+
+            {/* Tabela de Critérios */}
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-bold text-gray-800">5. Tabela de Avaliação Formativa & Critérios</h3>
+              <table className="w-full text-[10px] border border-gray-300 border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                    <th className="p-2 border-r border-gray-300 w-1/3">Capacidade Avaliada</th>
+                    <th className="p-2 border-r border-gray-300 w-1/3">Critério de Desempenho</th>
+                    {students.map(s => (
+                      <th key={s.id} className="p-2 border-r border-gray-300 text-center font-bold text-[9px] truncate max-w-[50px]">{s.name.split(' ')[0]}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeAssessmentPlan.tableRows.map((row: any, rIdx: number) => (
+                    <tr key={rIdx} className="border-b border-gray-300">
+                      <td className="p-2 border-r border-gray-300 font-medium text-gray-900 leading-tight">{row.capability}</td>
+                      <td className="p-2 border-r border-gray-300 text-gray-700 leading-tight">{row.criterion}</td>
+                      {students.map(s => (
+                        <td key={s.id} className="p-2 border-r border-gray-300 text-center font-bold font-mono">{row.studentEvaluations?.[s.id] || '-'}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Rubricas */}
+            <div className="space-y-2">
+              <h3 className="text-xs uppercase font-bold text-gray-800">6. Níveis de Desempenho (Rubricas)</h3>
+              <table className="w-full text-[10px] border border-gray-300 border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-gray-300 font-bold">
+                    <th className="p-2 border-r border-gray-300 w-12 text-center">Nível</th>
+                    <th className="p-2 border-r border-gray-300">Critérios Atingidos</th>
+                    <th className="p-2 border-r border-gray-300 w-32 font-bold">Classificação</th>
+                    <th className="p-2 w-16 text-center font-bold">Nota Final</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeAssessmentPlan.rubricLevels?.map((level: any, lIdx: number) => (
+                    <tr key={lIdx} className="border-b border-gray-300">
+                      <td className="p-2 border-r border-gray-300 text-center font-bold">{level.nivel}</td>
+                      <td className="p-2 border-r border-gray-300 text-gray-700">{level.description}</td>
+                      <td className="p-2 border-r border-gray-300 font-bold">{level.type}</td>
+                      <td className="p-2 text-center font-bold font-mono">{level.grade}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Assinaturas */}
+            <div className="mt-12 pt-8 border-t border-gray-300 grid grid-cols-2 gap-8 text-xs">
+              <div>
+                <p className="text-gray-500">Docente Responsável</p>
+                <div className="mt-8 border-b border-gray-400 w-full" />
+                <p className="mt-1 font-bold">Prof. Wellington</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Aprovação da Coordenação Pedagógica</p>
+                <div className="mt-8 border-b border-gray-400 w-full" />
+                <p className="mt-1 font-bold">Data: ____/____/_______</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── SCREEN HEADER ── */}
@@ -520,12 +961,13 @@ export function EvaluationPanel() {
 
       {/* ── TAB NAVIGATION & SAVE ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-industrial-700 pb-3 print:hidden">
-        <div className="flex bg-industrial-950 p-1 rounded-xl border border-industrial-700 self-start">
+        <div className="flex flex-wrap bg-industrial-950 p-1 rounded-xl border border-industrial-700 self-start gap-1">
           {[
             { id: 'atividades', label: 'Atividades por IA', icon: <Sparkles size={13} /> },
             { id: 'lancamentos', label: 'Resultados & Entregas', icon: <ClipboardList size={13} /> },
             { id: 'kpis', label: 'KPIs & Suporte', icon: <TrendingUp size={13} /> },
-            { id: 'relatorios', label: 'Impressão & Relatórios', icon: <Printer size={13} /> }
+            { id: 'relatorios', label: 'Impressão & Relatórios', icon: <Printer size={13} /> },
+            { id: 'plano', label: 'Plano de Ensino', icon: <BookOpen size={13} /> }
           ].map(tab => (
             <button
               key={tab.id}
@@ -914,31 +1356,262 @@ export function EvaluationPanel() {
 
       {/* ── TAB CONTENT: 4. RELATÓRIOS ── */}
       {activeTab === 'relatorios' && (
-        <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-8 shadow-xl text-center space-y-6 max-w-2xl mx-auto print:hidden">
-          <BookOpen className="mx-auto text-primary animate-bounce" size={48} />
-          
-          <div className="space-y-2">
-            <h3 className="text-lg font-bold text-white uppercase tracking-wider">Visualização e Geração de Relatórios Pedagógicos</h3>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
-              Gere documentos prontos para impressão ou exportação em PDF contendo as especificações das atividades criadas e a grade completa de desempenho e entregas dos alunos.
+        <div className="space-y-6 print:hidden animate-in fade-in duration-300">
+          <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
+            <h3 className="text-base font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+              <Printer className="text-primary" size={18} />
+              Central de Emissão de Relatórios & Documentação
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+              Selecione o formato de documentação que deseja gerar. Todos os relatórios são otimizados dinamicamente para exportação em PDF e folhas de impressão A4.
             </p>
           </div>
 
-          <div className="p-4 bg-industrial-900 border border-industrial-700/60 rounded-xl text-left space-y-3 font-mono text-xs max-w-sm mx-auto">
-            <p className="text-slate-400"><strong>Turma:</strong> {selectedPlanDetails?.name}</p>
-            <p className="text-slate-400"><strong>Módulo/UC:</strong> {activeModule?.name}</p>
-            <p className="text-slate-400"><strong>Atividades Criadas:</strong> {activities.length}</p>
-            <p className="text-slate-400"><strong>Alunos Registrados:</strong> {students.length}</p>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Opção 1: Ficha Geral da Turma */}
+            <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 hover:border-industrial-600 transition-all flex flex-col justify-between shadow-xl space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary"><TrendingUp size={20} /></div>
+                <h4 className="font-bold text-white text-sm">Ficha Pedagógica de Rendimento Geral</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Documento consolidado contendo as estatísticas gerais de notas da classe, percentuais de aproveitamento e listagem de alunos que necessitam de suporte para coordenação.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveReportType('geral');
+                  setTimeout(() => window.print(), 150);
+                }}
+                disabled={activities.length === 0}
+                className="w-full py-2.5 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 hover:text-white text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Gerar Relatório Geral
+              </button>
+            </div>
 
-          <button
-            onClick={handlePrint}
-            disabled={activities.length === 0}
-            className="px-6 py-3 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 mx-auto shadow-lg transition-all cursor-pointer"
-          >
-            <Printer size={16} />
-            Imprimir Relatório Completo
-          </button>
+            {/* Opção 2: Boletim Formativo Individual */}
+            <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 hover:border-industrial-600 transition-all flex flex-col justify-between shadow-xl space-y-4">
+              <div className="space-y-3">
+                <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center text-amber-400"><Award size={20} /></div>
+                <h4 className="font-bold text-white text-sm">Boletim Individual de Avaliação Formativa</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Ficha acadêmica individualizada do estudante contendo os conceitos atingidos em cada capacidade avaliada, médias das práticas e campo para parecer.
+                </p>
+                <div className="space-y-1">
+                  <label className="block text-[9px] uppercase font-bold text-slate-500">Selecione o Aluno *</label>
+                  <select
+                    value={selectedStudentForReport}
+                    onChange={e => setSelectedStudentForReport(e.target.value)}
+                    className="w-full bg-industrial-900 border border-industrial-700 text-white text-xs rounded-lg p-2 outline-none cursor-pointer focus:border-primary"
+                  >
+                    <option value="">-- Escolha o aluno --</option>
+                    {students.map(s => <option key={s.id} value={s.id}>{s.name} (RA: {s.ra})</option>)}
+                  </select>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!selectedStudentForReport) {
+                    alert("Selecione um aluno na lista acima para gerar o boletim individual.");
+                    return;
+                  }
+                  setActiveReportType('individual');
+                  setTimeout(() => window.print(), 150);
+                }}
+                disabled={activities.length === 0 || !selectedStudentForReport}
+                className="w-full py-2.5 bg-primary hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Gerar Ficha Individual
+              </button>
+            </div>
+
+            {/* Opção 3: Dossiê Digital de Evidências */}
+            <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 hover:border-industrial-600 transition-all flex flex-col justify-between shadow-xl space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400"><Upload size={20} /></div>
+                <h4 className="font-bold text-white text-sm">Dossiê Digital de Evidências</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Documentação visual que lista os arquivos operacionais, fotos e relatórios anexados pelos estudantes como comprovação física das capacidades desenvolvidas.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveReportType('dossie');
+                  setTimeout(() => window.print(), 150);
+                }}
+                disabled={activities.length === 0}
+                className="w-full py-2.5 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 hover:text-white text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Gerar Dossiê de Evidências
+              </button>
+            </div>
+
+            {/* Opção 4: Registro de Critérios Integrado */}
+            <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 hover:border-industrial-600 transition-all flex flex-col justify-between shadow-xl space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400"><ClipboardList size={20} /></div>
+                <h4 className="font-bold text-white text-sm">Registro de Critérios MSEP Integrado</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Matriz oficial do Plano de Ensino vinculando cada capacidade e critério pedagógico com o conceito atingido por todos os alunos da turma.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveReportType('criterios');
+                  setTimeout(() => window.print(), 150);
+                }}
+                disabled={!activeAssessmentPlan}
+                className="w-full py-2.5 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 hover:text-white text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Gerar Registro de Critérios
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB CONTENT: 5. PLANO DE ENSINO ── */}
+      {activeTab === 'plano' && (
+        <div className="space-y-6 print:hidden animate-in fade-in duration-300">
+          {loadingPlan ? (
+            <div className="bg-industrial-800 p-20 border border-industrial-700 rounded-2xl text-center shadow-xl">
+              <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
+              <p className="text-slate-400 text-xs font-mono">Buscando Plano de Ensino da Unidade Curricular...</p>
+            </div>
+          ) : !activeAssessmentPlan ? (
+            <div className="bg-industrial-800 p-16 border border-industrial-700 rounded-2xl text-center shadow-xl space-y-4">
+              <AlertCircle size={48} className="mx-auto text-amber-500 animate-pulse" />
+              <h3 className="text-base font-bold text-white uppercase">Plano de Ensino Não Localizado</h3>
+              <p className="text-slate-400 text-xs max-w-sm mx-auto leading-relaxed">
+                Não encontramos um plano de ensino estruturado para o módulo <strong className="text-primary">{activeModule?.name}</strong> no banco de dados. 
+                Crie o plano na tela de <strong>Unidades Curriculares</strong> primeiro para que possamos sincronizar os critérios de avaliação com os alunos.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 relative overflow-hidden space-y-6 shadow-xl">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
+              
+              {/* Plano Top Actions */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-industrial-700 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <BookOpen className="text-primary" size={18} />
+                    Plano de Ensino & Avaliação Formativa
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">Metodologia por Competências (MSEP) • {activeAssessmentPlan.schoolName}</p>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={handleSyncActivitiesToCriteria}
+                    disabled={saving}
+                    className="flex-1 sm:flex-initial px-4 py-2 bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/30 hover:border-primary text-primary hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Sparkles size={13} />
+                    Sincronizar Notas
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveReportType('plano');
+                      setTimeout(() => window.print(), 150);
+                    }}
+                    className="flex-1 sm:flex-initial px-4 py-2 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 text-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Printer size={13} />
+                    Imprimir Plano
+                  </button>
+                </div>
+              </div>
+
+              {/* Detalhes do Plano */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-industrial-950/40 p-4 rounded-xl border border-industrial-750 font-mono">
+                <div><span className="text-slate-500 uppercase font-bold text-[9px] block">Escola:</span> <span className="text-white font-medium">{activeAssessmentPlan.schoolName}</span></div>
+                <div><span className="text-slate-500 uppercase font-bold text-[9px] block">Curso:</span> <span className="text-white font-medium">{activeAssessmentPlan.courseName}</span></div>
+                <div><span className="text-slate-500 uppercase font-bold text-[9px] block">Semestre:</span> <span className="text-white font-medium">{activeAssessmentPlan.semester}</span></div>
+                <div><span className="text-slate-500 uppercase font-bold text-[9px] block">Unidade Curricular:</span> <span className="text-white font-medium">{activeAssessmentPlan.unitName}</span></div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase font-bold text-amber-400 tracking-wider font-mono">4. Situação de Aprendizagem Contextualizada</h4>
+                <p className="text-slate-300 text-xs leading-relaxed bg-industrial-900/60 p-4 rounded-xl border border-industrial-700/50">
+                  {activeAssessmentPlan.learningContext}
+                </p>
+              </div>
+
+              {/* Tabela de Critérios */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase font-bold text-primary tracking-wider font-mono">5. Tabela de Avaliação Formativa & Critérios</h4>
+                <div className="overflow-x-auto border border-industrial-700 rounded-xl">
+                  <table className="w-full text-left text-xs min-w-[700px] border-collapse">
+                    <thead>
+                      <tr className="bg-industrial-900 border-b border-industrial-700 text-slate-400">
+                        <th className="p-3 border-r border-industrial-700 w-1/3">Capacidade a ser Avaliada</th>
+                        <th className="p-3 border-r border-industrial-700 w-1/3">Critério de Avaliação (MSEP)</th>
+                        {students.map(s => (
+                          <th key={s.id} className="p-3 border-r border-industrial-700 text-center text-[10px] truncate max-w-[80px] font-mono" title={s.name}>
+                            {s.name.split(' ')[0]} <br />
+                            <span className="text-[8px] text-slate-500 font-normal">RA: {s.ra}</span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-industrial-700">
+                      {activeAssessmentPlan.tableRows.map((row: any, rIdx: number) => (
+                        <tr key={rIdx} className="bg-industrial-800 hover:bg-industrial-750 transition-colors">
+                          <td className="p-3 border-r border-industrial-700 font-medium text-white">{row.capability}</td>
+                          <td className="p-3 border-r border-industrial-700 text-slate-300">{row.criterion}</td>
+                          {students.map(s => {
+                            const evalVal = row.studentEvaluations?.[s.id] || '';
+                            const colorMap: Record<string, string> = {
+                              'D': 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+                              'S': 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+                              'NS': 'text-red-400 bg-red-500/10 border-red-500/20'
+                            };
+                            return (
+                              <td key={s.id} className="p-3 border-r border-industrial-700 text-center font-bold font-mono">
+                                <span className={`px-2 py-0.5 rounded text-[10px] border ${evalVal ? colorMap[evalVal] : 'text-slate-600 bg-transparent border-transparent'}`}>
+                                  {evalVal || '-'}
+                                </span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Níveis de Desempenho */}
+              <div className="space-y-3">
+                <h4 className="text-xs uppercase font-bold text-indigo-400 tracking-wider font-mono">6. Níveis de Desempenho (Rubricas)</h4>
+                <div className="overflow-x-auto border border-industrial-700 rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-industrial-900 border-b border-industrial-700 text-slate-400 font-mono">
+                        <th className="p-3 border-r border-industrial-700 w-16 text-center">Nível</th>
+                        <th className="p-3 border-r border-industrial-700 font-sans text-left">Critérios Atingidos (Descrição do Nível)</th>
+                        <th className="p-3 border-r border-industrial-700 w-36 font-sans text-left">Classificação</th>
+                        <th className="p-3 w-20 text-center">Nota Final</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-industrial-700 font-mono">
+                      {activeAssessmentPlan.rubricLevels?.map((level: any, lIdx: number) => (
+                        <tr key={lIdx} className="bg-industrial-800/40 hover:bg-industrial-800 transition-colors">
+                          <td className="p-3 border-r border-industrial-700 text-center font-bold">{level.nivel}</td>
+                          <td className="p-3 border-r border-industrial-700 font-sans text-slate-300">{level.description}</td>
+                          <td className="p-3 border-r border-industrial-700 font-sans text-white font-bold">{level.type}</td>
+                          <td className="p-3 text-center text-primary font-bold">{level.grade}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
