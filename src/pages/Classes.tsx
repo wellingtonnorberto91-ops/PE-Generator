@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Dropzone } from '../components/ui/Dropzone';
 import { extractDataFromFile, type ExtractedTeachingPlan } from '../features/ai-core/gemini';
 import { calculateEndDate } from '../features/calendar/engine';
-import { BookOpen, Sparkles, Loader2, Play, Edit3 } from 'lucide-react';
+import { BookOpen, Sparkles, Loader2, Play, Edit3, Plus } from 'lucide-react';
 import { db } from '../firebase/config';
 import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
 
@@ -52,6 +52,7 @@ export function Classes() {
   const [startDate, setStartDate] = useState('');
   const [hoursPerDay, setHoursPerDay] = useState(4);
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
+  const [showCreateArea, setShowCreateArea] = useState(false);
 
   const fetchPlans = async () => {
     try {
@@ -130,6 +131,33 @@ export function Classes() {
     }
   };
 
+  const handleCreateManualPlan = () => {
+    setTempPlanData({
+      totalHours: 120,
+      modules: [
+        { name: 'Módulo Técnico I', hours: 60, objective: '', technicalCapabilities: [], socioemotionalCapabilities: [], knowledge: [] }
+      ],
+      msep: {
+        objetivoGeral: 'Capacitar os alunos nos fundamentos operacionais e teóricos aplicados no setor produtivo.',
+        capacidadesBasicas: ['Comunicação ativa', 'Trabalho em equipe'],
+        capacidadesTecnicas: ['Ler desenhos mecânicos', 'Operar instrumentos de metrologia'],
+        capacidadesSocioemocionais: ['Resiliência', 'Ética profissional'],
+        conhecimentos: ['Leitura e interpretação de desenhos', 'Conceitos de física básica'],
+        infraestrutura: 'Laboratório de Metrologia e Ajustagem Mecânica',
+        situacoesAprendizagem: 'Contexto: Uma empresa local precisa calibrar lote de eixos com precisão de micrômetro.\nDesafio: Realizar o ensaio, laudar o desvio e certificar o lote.',
+        criteriosAvaliacao: 'Mapeia os desvios de precisão nos eixos e gera laudo técnico em conformidade com as tolerâncias operacionais.',
+        estrategiasEnsino: 'Aulas teóricas expositivas com demonstração prática em bancada e exercícios de simulação.',
+        atividadesPraticas: ['Prática 1: Ensaios dimensionais de eixos', 'Prática 2: Emissão de relatórios técnicos'],
+        instrumentosAvaliacao: ['Rubricas de avaliação prática', 'Laudo técnico da entrega']
+      }
+    });
+    setClassName('Nova Turma Manual');
+    setStartDate('');
+    setHoursPerDay(4);
+    setSelectedDays([1, 2, 3, 4, 5]);
+    setShowCreateArea(false);
+  };
+
   const toggleDay = (day: number) => {
     setSelectedDays(prev => 
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
@@ -184,6 +212,7 @@ export function Classes() {
       setTempPlanData(null);
       setClassName('');
       setStartDate('');
+      setShowCreateArea(false);
       await fetchPlans();
     } catch (error: unknown) {
       const err = error as Error;
@@ -198,13 +227,30 @@ export function Classes() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-white">Turmas</h1>
-        <p className="text-slate-400 mt-1">Importe a matriz ou plano de curso. O Motor Logístico calculará a agenda da turma e término do curso baseado nos calendários e regras salvas.</p>
+      <div className="flex justify-between items-center bg-industrial-900/40 p-4 border border-industrial-800 rounded-xl">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Turmas</h1>
+          <p className="text-slate-400 mt-1 text-xs">Importe a matriz ou gerencie as turmas ativas e o planejamento de datas.</p>
+        </div>
+        {!tempPlanData && (
+          <button
+            onClick={() => setShowCreateArea(!showCreateArea)}
+            className="px-4 py-2 bg-primary hover:bg-primary/95 text-white border border-primary/20 hover:border-primary/45 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {showCreateArea ? (
+              <>Recolher Importação</>
+            ) : (
+              <>
+                <Plus size={14} className="text-white" />
+                Nova Turma
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Sentry AI Zone */}
-      {!tempPlanData ? (
+      {!tempPlanData && showCreateArea && (
         <div className="bg-industrial-800 border border-industrial-700 rounded-xl p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 bg-accent/10 text-accent text-xs font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1 border-b border-l border-accent/20">
             <Sparkles size={14} /> Sentry AI
@@ -221,33 +267,114 @@ export function Classes() {
               <p className="text-slate-300 font-medium">Sentry AI lendo a Matriz Curricular...</p>
             </div>
           ) : (
-            <Dropzone 
-              onDrop={handleFileUpload} 
-              accept={{
-                'application/pdf': ['.pdf'],
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-                'text/plain': ['.txt']
-              }} 
-              label="Arraste o PDF, Excel, Word ou TXT da Matriz do Curso"
-            />
+            <div className="space-y-4">
+              <Dropzone 
+                onDrop={handleFileUpload} 
+                accept={{
+                  'application/pdf': ['.pdf'],
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                  'text/plain': ['.txt']
+                }} 
+                label="Arraste o PDF, Excel, Word ou TXT da Matriz do Curso"
+              />
+              <div className="flex items-center justify-center gap-4 py-2">
+                <span className="h-[1px] bg-industrial-700 flex-1"></span>
+                <span className="text-[10px] uppercase font-bold text-slate-500 font-mono">OU</span>
+                <span className="h-[1px] bg-industrial-700 flex-1"></span>
+              </div>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={handleCreateManualPlan}
+                  className="px-5 py-2.5 bg-industrial-900 hover:bg-industrial-750 text-slate-300 hover:text-white border border-industrial-700 hover:border-industrial-600 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus size={14} className="text-primary" />
+                  Criar Turma Manualmente (Sem Arquivo)
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      ) : (
-        /* Checkout Engine Panel */
+      )}
+
+      {/* Checkout Engine Panel */}
+      {tempPlanData && (
         <div className="bg-industrial-800 border border-primary/30 rounded-xl p-6 relative shadow-[0_0_15px_rgba(59,130,246,0.1)]">
           <h2 className="text-xl font-medium text-white mb-4">Configuração Logística da Turma</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <div className="bg-industrial-900 p-4 rounded-lg border border-industrial-700">
-                <p className="text-sm text-slate-400">Dados extraídos via IA:</p>
-                <p className="text-2xl font-bold text-primary mt-1">{tempPlanData.totalHours} Horas Totais</p>
-                <p className="text-sm text-slate-300">{tempPlanData.modules.length} Módulos Curriculares</p>
-              </div>
-
               <div>
                 <label className="block text-sm text-slate-300 mb-1">Nome da Turma</label>
-                <input type="text" value={className} onChange={e => setClassName(e.target.value)} className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white" />
+                <input 
+                  type="text" 
+                  value={className} 
+                  onChange={e => setClassName(e.target.value)} 
+                  className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white focus:border-primary outline-none text-sm" 
+                />
+              </div>
+
+              <div className="bg-industrial-900 p-4 rounded-lg border border-industrial-700 space-y-4">
+                <div className="flex justify-between items-center border-b border-industrial-750 pb-2">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">Estrutura Curricular</h4>
+                    <p className="text-[9px] text-slate-500 font-mono">Carga Horária Total: <span className="text-primary font-bold">{tempPlanData.totalHours}h</span></p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const updatedModules = [...tempPlanData.modules, { name: `Módulo ${tempPlanData.modules.length + 1}`, hours: 40 }];
+                      const newTotal = updatedModules.reduce((sum, m) => sum + m.hours, 0);
+                      setTempPlanData({...tempPlanData, modules: updatedModules, totalHours: newTotal});
+                    }}
+                    className="text-[10px] bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 px-2 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus size={10} /> Adicionar Módulo
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                  {tempPlanData.modules.map((mod, mIdx) => (
+                    <div key={mIdx} className="flex gap-2 items-center bg-industrial-950 p-2 border border-industrial-750">
+                      <input 
+                        type="text" 
+                        value={mod.name} 
+                        onChange={e => {
+                          const updated = [...tempPlanData.modules];
+                          updated[mIdx] = { ...updated[mIdx], name: e.target.value };
+                          setTempPlanData({...tempPlanData, modules: updated});
+                        }}
+                        placeholder="Nome do Módulo"
+                        className="flex-1 bg-industrial-900 border border-industrial-700 rounded p-1 text-[11px] text-white focus:border-primary outline-none"
+                      />
+                      <input 
+                        type="number" 
+                        value={mod.hours} 
+                        onChange={e => {
+                          const updated = [...tempPlanData.modules];
+                          updated[mIdx] = { ...updated[mIdx], hours: Number(e.target.value) };
+                          const newTotal = updated.reduce((sum, m) => sum + m.hours, 0);
+                          setTempPlanData({...tempPlanData, modules: updated, totalHours: newTotal});
+                        }}
+                        placeholder="C.H."
+                        className="w-16 bg-industrial-900 border border-industrial-700 rounded p-1 text-[11px] text-white text-center focus:border-primary outline-none font-bold"
+                        min={1}
+                      />
+                      {tempPlanData.modules.length > 1 && (
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const updated = tempPlanData.modules.filter((_, idx) => idx !== mIdx);
+                            const newTotal = updated.reduce((sum, m) => sum + m.hours, 0);
+                            setTempPlanData({...tempPlanData, modules: updated, totalHours: newTotal});
+                          }}
+                          className="text-red-500 hover:text-red-400 text-xs px-1 cursor-pointer font-bold"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -279,134 +406,137 @@ export function Classes() {
 
           {/* Painel MSEP Sentry AI */}
           {tempPlanData.msep && (
-            <div className="mt-8 pt-8 border-t border-industrial-700">
-              
-              <h3 className="text-lg font-medium text-white mb-6 flex items-center gap-2">
-                <BookOpen size={18} className="text-slate-400" />
-                Dados Extraídos da Matriz
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="md:col-span-2">
-                  <label className="block text-sm text-slate-300 mb-1">Objetivo Geral</label>
-                  <textarea 
-                    value={tempPlanData!.msep!.objetivoGeral} 
-                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, objetivoGeral: e.target.value}})}
-                    className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-16"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-slate-300 mb-1">Capacidades Básicas</label>
-                  <textarea 
-                    value={tempPlanData!.msep!.capacidadesBasicas.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesBasicas: e.target.value.split(',').map((s:string) => s.trim())}})}
-                    className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-slate-300 mb-1">Capacidades Técnicas</label>
-                  <textarea 
-                    value={tempPlanData!.msep!.capacidadesTecnicas.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesTecnicas: e.target.value.split(',').map((s:string) => s.trim())}})}
-                    className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-slate-300 mb-1">Capacidades Socioemocionais</label>
-                  <textarea 
-                    value={tempPlanData!.msep!.capacidadesSocioemocionais.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesSocioemocionais: e.target.value.split(',').map((s:string) => s.trim())}})}
-                    className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm text-slate-300 mb-1">Conhecimentos / Temas</label>
-                  <textarea 
-                    value={tempPlanData!.msep!.conhecimentos.join(', ')} 
-                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, conhecimentos: e.target.value.split(',').map((s:string) => s.trim())}})}
-                    className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white h-20"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm text-slate-300 mb-1">Infraestrutura Necessária</label>
-                  <input 
-                    type="text"
-                    value={tempPlanData!.msep!.infraestrutura} 
-                    onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, infraestrutura: e.target.value}})}
-                    className="w-full bg-industrial-900 border border-industrial-700 rounded p-2 text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Seção Sugerida pela IA */}
-              <div className="bg-industrial-900/50 border border-primary/20 rounded-xl p-6 relative">
-                <div className="absolute top-0 right-0 bg-accent/10 text-accent text-xs font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1 border-b border-l border-accent/20">
-                  <Sparkles size={14} /> Sentry AI
-                </div>
-                
-                <h3 className="text-lg font-medium text-primary mb-6 flex items-center gap-2">
-                  Sugestões Pedagógicas
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm text-slate-300 mb-1">Situações de Aprendizagem</label>
+            <details className="group mt-8 pt-6 border-t border-industrial-700">
+              <summary className="flex justify-between items-center cursor-pointer font-bold text-xs uppercase text-slate-400 hover:text-white select-none transition-colors mb-4">
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} className="text-primary group-open:animate-spin" />
+                  Dados e Metodologia MSEP Extraídos (Opcional - Expandir para Editar)
+                </span>
+                <span className="text-[10px] text-primary group-open:hidden font-mono">Visualizar / Editar</span>
+                <span className="text-[10px] text-slate-500 hidden group-open:inline font-mono">Recolher</span>
+              </summary>
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  <div className="md:col-span-3">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Objetivo Geral</label>
                     <textarea 
-                      value={tempPlanData!.msep!.situacoesAprendizagem} 
-                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, situacoesAprendizagem: e.target.value}})}
-                      className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20 focus:border-primary focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm text-slate-300 mb-1">Atividades Práticas (Separadas por vírgula)</label>
-                    <textarea 
-                      value={tempPlanData!.msep!.atividadesPraticas.join(', ')} 
-                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, atividadesPraticas: e.target.value.split(',').map((s:string) => s.trim())}})}
-                      className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-slate-300 mb-1">Estratégias de Ensino</label>
-                    <textarea 
-                      value={tempPlanData!.msep!.estrategiasEnsino} 
-                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, estrategiasEnsino: e.target.value}})}
-                      className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-slate-300 mb-1">Critérios de Avaliação</label>
-                    <textarea 
-                      value={tempPlanData!.msep!.criteriosAvaliacao} 
-                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, criteriosAvaliacao: e.target.value}})}
-                      className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white h-20"
+                      value={tempPlanData!.msep!.objetivoGeral} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, objetivoGeral: e.target.value}})}
+                      className="w-full bg-industrial-900 border border-industrial-700 rounded p-1.5 text-white h-10 outline-none focus:border-primary text-[11px] resize-none"
                     />
                   </div>
                   
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Capacidades Básicas</label>
+                    <textarea 
+                      value={tempPlanData!.msep!.capacidadesBasicas.join(', ')} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesBasicas: e.target.value.split(',').map((s:string) => s.trim())}})}
+                      className="w-full bg-industrial-900 border border-industrial-700 rounded p-1.5 text-white h-10 outline-none focus:border-primary text-[11px] resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Capacidades Técnicas</label>
+                    <textarea 
+                      value={tempPlanData!.msep!.capacidadesTecnicas.join(', ')} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesTecnicas: e.target.value.split(',').map((s:string) => s.trim())}})}
+                      className="w-full bg-industrial-900 border border-industrial-700 rounded p-1.5 text-white h-10 outline-none focus:border-primary text-[11px] resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Capacidades Socioemocionais</label>
+                    <textarea 
+                      value={tempPlanData!.msep!.capacidadesSocioemocionais.join(', ')} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, capacidadesSocioemocionais: e.target.value.split(',').map((s:string) => s.trim())}})}
+                      className="w-full bg-industrial-900 border border-industrial-700 rounded p-1.5 text-white h-10 outline-none focus:border-primary text-[11px] resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Conhecimentos / Temas</label>
+                    <textarea 
+                      value={tempPlanData!.msep!.conhecimentos.join(', ')} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, conhecimentos: e.target.value.split(',').map((s:string) => s.trim())}})}
+                      className="w-full bg-industrial-900 border border-industrial-700 rounded p-1.5 text-white h-10 outline-none focus:border-primary text-[11px] resize-none"
+                    />
+                  </div>
+
                   <div className="md:col-span-2">
-                    <label className="block text-sm text-slate-300 mb-1">Instrumentos de Avaliação</label>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Infraestrutura Necessária</label>
                     <input 
                       type="text"
-                      value={tempPlanData!.msep!.instrumentosAvaliacao.join(', ')} 
-                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, instrumentosAvaliacao: e.target.value.split(',').map((s:string) => s.trim())}})}
-                      className="w-full bg-industrial-900 border border-primary/30 rounded p-2 text-white"
+                      value={tempPlanData!.msep!.infraestrutura} 
+                      onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, infraestrutura: e.target.value}})}
+                      className="w-full bg-industrial-900 border border-industrial-700 rounded p-1.5 text-white text-[11px] outline-none focus:border-primary"
                     />
                   </div>
                 </div>
-              </div>
 
-            </div>
+                {/* Seção Sugerida pela IA */}
+                <div className="bg-industrial-900/50 border border-primary/20 rounded-xl p-4 relative">
+                  <div className="absolute top-0 right-0 bg-accent/10 text-accent text-xs font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1 border-b border-l border-accent/20">
+                    <Sparkles size={14} /> Sentry AI
+                  </div>
+                  
+                  <h3 className="text-sm font-medium text-primary mb-4 flex items-center gap-2">
+                    Sugestões Pedagógicas
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Situações de Aprendizagem</label>
+                      <textarea 
+                        value={tempPlanData!.msep!.situacoesAprendizagem} 
+                        onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, situacoesAprendizagem: e.target.value}})}
+                        className="w-full bg-industrial-900 border border-primary/30 rounded p-1.5 text-white h-12 focus:border-primary focus:ring-1 focus:ring-primary text-[11px] resize-none"
+                      />
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Atividades Práticas (Separadas por vírgula)</label>
+                      <textarea 
+                        value={tempPlanData!.msep!.atividadesPraticas.join(', ')} 
+                        onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, atividadesPraticas: e.target.value.split(',').map((s:string) => s.trim())}})}
+                        className="w-full bg-industrial-900 border border-primary/30 rounded p-1.5 text-white h-10 text-[11px] resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Estratégias de Ensino</label>
+                      <textarea 
+                        value={tempPlanData!.msep!.estrategiasEnsino} 
+                        onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, estrategiasEnsino: e.target.value}})}
+                        className="w-full bg-industrial-900 border border-primary/30 rounded p-1.5 text-white h-10 text-[11px] resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Critérios de Avaliação</label>
+                      <textarea 
+                        value={tempPlanData!.msep!.criteriosAvaliacao} 
+                        onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, criteriosAvaliacao: e.target.value}})}
+                        className="w-full bg-industrial-900 border border-primary/30 rounded p-1.5 text-white h-10 text-[11px] resize-none"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Instrumentos de Avaliação</label>
+                      <input 
+                        type="text"
+                        value={tempPlanData!.msep!.instrumentosAvaliacao.join(', ')} 
+                        onChange={e => setTempPlanData({...tempPlanData!, msep: {...tempPlanData!.msep!, instrumentosAvaliacao: e.target.value.split(',').map((s:string) => s.trim())}})}
+                        className="w-full bg-industrial-900 border border-primary/30 rounded p-1.5 text-white text-[11px] outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
           )}
 
           <div className="mt-8 flex justify-end gap-4">
-            <button onClick={() => setTempPlanData(null)} className="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancelar</button>
+            <button onClick={() => { setTempPlanData(null); setShowCreateArea(false); }} className="px-4 py-2 text-slate-400 hover:text-white transition-colors">Cancelar</button>
             <button onClick={handleCalculateAndSave} className="bg-accent hover:bg-emerald-600 text-white px-6 py-2 rounded font-medium flex items-center gap-2 shadow-lg shadow-emerald-500/20">
               <Play size={18} />
               Rodar Motor Logístico e Salvar
