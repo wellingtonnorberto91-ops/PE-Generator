@@ -65,8 +65,9 @@ O **PE Generator** é uma plataforma educacional web voltada para docentes do SE
 ---
 
 ## 3. Estado Atual do Repositório (Commit Mais Recente)
-* **Commit**: `bf4d28a` na branch `main`
-* **Mensagem**: *"feat(bi-dashboard): implement interactive pedagogical analytics, scatter plot and attendance heatmap"*
+* **Commit**: `9ea52a0` na branch `main`
+* **Mensagem**: *"feat(bi-dashboard): implement complete drill-down flow (macro school view and micro class view)"*
 * **Status**: Estável, compilando com sucesso absoluto, sem erros de tipagem TypeScript ou de runtime.
+
 
 
