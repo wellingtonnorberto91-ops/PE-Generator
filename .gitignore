@@ -26,3 +26,9 @@ dist-ssr
 # Security
 Keys/
 .firebase/
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
