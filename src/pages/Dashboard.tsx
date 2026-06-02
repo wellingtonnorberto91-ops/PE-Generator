@@ -1,18 +1,15 @@
-import { UploadCloud, FileText, Calendar, Users } from 'lucide-react';
+import { FileText, Calendar, Users } from 'lucide-react';
+ 
+ export function Dashboard() {
+   return (
+     <div className="space-y-6">
+       <div className="flex items-center justify-between">
+         <div>
+           <h1 className="text-2xl font-semibold text-white">Dashboard Inicial</h1>
+           <p className="text-slate-400 mt-1">Bem-vindo ao motor logístico PE Generator.</p>
+         </div>
+       </div>
 
-export function Dashboard() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Dashboard Inicial</h1>
-          <p className="text-slate-400 mt-1">Bem-vindo ao motor logístico PE Generator.</p>
-        </div>
-        <button className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20">
-          <UploadCloud size={16} />
-          Nova Importação Inteligente
-        </button>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-industrial-800 border border-industrial-700 rounded-lg p-6 hover:border-primary/50 transition-colors group">
