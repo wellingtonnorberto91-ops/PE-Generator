@@ -52,10 +52,21 @@ O **PE Generator** é uma plataforma educacional web voltada para docentes do SE
 ### G. Simplificação do Dashboard
 * **O que foi feito**: Removido o botão "Nova Importação Inteligente" do cabeçalho do Dashboard Inicial para simplificar o fluxo de navegação do usuário e evitar acessos redundantes à importação por IA. O import de ícone ocioso `UploadCloud` foi removido.
 
+### H. Dashboard Pedagógico Analítico (BI)
+* **O que foi feito**: Substituída a página inicial estática por um painel de Business Intelligence dinâmico focado em intervenções pedagógicas preventivas. O painel inclui:
+  1. **Seletor de Turmas**: Carregamento assíncrono das turmas da coleção `teaching_plans` do Firestore.
+  2. **Alertas de Risco Preventivos**: Identificação imediata e lista ativa de alunos críticos (média < 50 ou faltas > 25%).
+  3. **Gráfico Scatter Plot de Risco**: Gráfico interativo bidimensional (Presença vs. Média de Notas) com tooltips detalhados por aluno.
+  4. **Mapa de Calor de Absenteísmo**: Grid de assiduidade relacionando dias da semana e horários das aulas.
+  5. **Gargalos de Aprendizagem**: Gráfico de barras indicando a proficiência por competência do plano de ensino ativo.
+  6. **Acompanhamento de Cronograma**: Comparação física entre aulas executadas e previstas.
+* As interfaces usam estilização brutalista pura em Tailwind CSS v4, garantindo compatibilidade estrita e leveza no React 19.
+
 ---
 
 ## 3. Estado Atual do Repositório (Commit Mais Recente)
-* **Commit**: `049abf0` na branch `main`
-* **Mensagem**: *"feat(dashboard): remove Nova Importacao Inteligente button"*
+* **Commit**: `bf4d28a` na branch `main`
+* **Mensagem**: *"feat(bi-dashboard): implement interactive pedagogical analytics, scatter plot and attendance heatmap"*
 * **Status**: Estável, compilando com sucesso absoluto, sem erros de tipagem TypeScript ou de runtime.
+
 
