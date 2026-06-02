@@ -27,7 +27,7 @@ describe('Sentry AI Pedagogical Engine', () => {
       const result = await generateCriteriaWithMethodology(null, capabilities);
       
       expect(result).toHaveLength(2);
-      expect(result[0]).toContain('Critério');
+      expect(result[0]).toContain('capacidade A');
     });
 
     it('handles null file gracefully and generates standard professional criteria', async () => {
