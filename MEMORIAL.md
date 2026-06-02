@@ -49,9 +49,13 @@ O **PE Generator** é uma plataforma educacional web voltada para docentes do SE
   5. **Plano de Ensino Completo** (impressão do plano e rubricas no formato oficial MSEP do SENAI).
 * Cada template foi configurado com folhas de estilo de impressão estritas para ocultar componentes web e centralizar os dados perfeitamente em páginas A4 prontas para PDF.
 
+### G. Simplificação do Dashboard
+* **O que foi feito**: Removido o botão "Nova Importação Inteligente" do cabeçalho do Dashboard Inicial para simplificar o fluxo de navegação do usuário e evitar acessos redundantes à importação por IA. O import de ícone ocioso `UploadCloud` foi removido.
+
 ---
 
 ## 3. Estado Atual do Repositório (Commit Mais Recente)
-* **Commit**: `77344f1` na branch `main`
-* **Mensagem**: *"feat: implement smart criteria synchronization, teaching plan view and multiple dynamic A4 reports in evaluation panel"*
-* **Status**: Estável, sem erros de tipagem TypeScript ou de runtime.
+* **Commit**: `049abf0` na branch `main`
+* **Mensagem**: *"feat(dashboard): remove Nova Importacao Inteligente button"*
+* **Status**: Estável, compilando com sucesso absoluto, sem erros de tipagem TypeScript ou de runtime.
+
