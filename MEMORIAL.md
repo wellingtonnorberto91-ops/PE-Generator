@@ -62,12 +62,16 @@ O **PE Generator** é uma plataforma educacional web voltada para docentes do SE
   6. **Acompanhamento de Cronograma**: Comparação física entre aulas executadas e previstas.
 * As interfaces usam estilização brutalista pura em Tailwind CSS v4, garantindo compatibilidade estrita e leveza no React 19.
 
+### I. Motor de Cronograma Interativo (Gantt & Overrides) & Analytics
+* **O que foi feito**:
+  * **Configuração em Aulas:** Trocamos a modelagem de horas de aula brutas por parametrização em **Aulas por Dia** e **Duração da Aula (minutos)** nas configurações de criação do Plano de Ensino. A tabela de Gantt renderiza as aulas previstas por dia dinamicamente.
+  * **Gráfico de Gantt Interativo (Overrides):** Habilitamos cliques nos cabeçalhos de dias do cronograma para abrir um popover (modal) de exceções. O docente pode marcar dias como **Feriado**, **Sem Aula** ou **Reposição** com uma nota de texto. Os dados são gravados no Firestore no campo `scheduleOverrides` do plano correspondente. O motor logístico em TypeScript recalcula e desloca dinamicamente a cadeia inteira de aulas na tela ao salvar.
+  * **Painel de Analytics de Notas MSEP:** Construímos um painel analítico no rodapé da página de cronogramas que compila as avaliações individuais por capacidade técnica obtidas na coleção `assessments_formativa`. Apresenta uma barra de progresso empilhada (S, NS, D) por capacidade técnica e emite um alerta piscante crítico se a taxa de "Não Satisfatório" (NS) exceder o limite de **30%**.
+
 ---
 
 ## 3. Estado Atual do Repositório (Commit Mais Recente)
-* **Commit**: `9ea52a0` na branch `main`
-* **Mensagem**: *"feat(bi-dashboard): implement complete drill-down flow (macro school view and micro class view)"*
-* **Status**: Estável, compilando com sucesso absoluto, sem erros de tipagem TypeScript ou de runtime.
-
-
-
+* **Commit**: `2eb0c67` na branch `main`
+* **Mensagem**: *"feat: Gantt interativo com exceções de datas, aulas por dia letivo e painel analítico MSEP"*
+* **Status**: Estável, hospedado e compilando com sucesso absoluto, sem erros de tipagem TypeScript ou de runtime.
+* **Link de Produção**: [https://pe-generator-a7f2f.web.app](https://pe-generator-a7f2f.web.app)
