@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../../firebase/config';
 import { collection, getDocs, query, where, addDoc, doc, getDoc } from 'firebase/firestore';
 import { generateCriteriaWithMethodology, generateLearningSituationsAI } from '../../features/ai-core/gemini';
+import { SentryCopilot } from '../layout/SentryCopilot';
 import { Dropzone } from '../ui/Dropzone';
 import { X, Sparkles, Save, Loader2, Plus, Trash2, ClipboardList } from 'lucide-react';
 
@@ -98,6 +99,28 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
   const [savingRubric, setSavingRubric] = useState(false);
 
   const [generatingComplete, setGeneratingComplete] = useState(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+
+  const handleApplyCopilotPlan = (result: { learningContext: string; criteria: string[] }) => {
+    if (!result) return;
+    setLearningContext(result.learningContext);
+    
+    setTableRows(prevRows => {
+      const currentEvals = prevRows.reduce((acc, row) => {
+        acc[row.capability] = row.studentEvaluations;
+        return acc;
+      }, {} as Record<string, Record<string, string>>);
+
+      return capabilities.map((cap, idx) => ({
+        capability: cap,
+        criterion: result.criteria[idx] || 'Critério consolidado pela conversa.',
+        studentEvaluations: currentEvals[cap] || students.reduce((acc, s) => {
+          acc[s.id] = '';
+          return acc;
+        }, {} as Record<string, string>)
+      }));
+    });
+  };
 
   const handleGenerateCompletePlan = async (customCaps?: string[], customKnows?: string[], customStudents?: Student[]) => {
     const capsToUse = customCaps || capabilities;
@@ -524,6 +547,17 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {!generatingComplete && (
+              <button
+                type="button"
+                onClick={() => setIsCopilotOpen(true)}
+                disabled={capabilities.length === 0}
+                className="px-4 py-1.5 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer font-mono"
+              >
+                <Sparkles size={12} className="animate-pulse text-accent" />
+                Conversar com Copiloto
+              </button>
+            )}
             {generatingComplete ? (
               <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-3 py-1.5 rounded-xl text-xs font-bold animate-pulse">
                 <Loader2 className="animate-spin" size={12} />
@@ -1042,6 +1076,19 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
           </button>
         </div>
       </div>
+
+      {/* Sentry AI Copilot Drawer */}
+      <SentryCopilot
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        mode="PLAN"
+        contextData={{
+          unitName,
+          capabilities,
+          knowledgeList
+        }}
+        onApply={handleApplyCopilotPlan}
+      />
     </div>
   );
 }

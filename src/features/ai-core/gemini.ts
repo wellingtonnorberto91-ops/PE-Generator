@@ -765,21 +765,33 @@ export interface ExtractedActivity {
   expectedResult: string;
 }
 
-export async function generateActivitiesAI(moduleName: string, criteria: string[]): Promise<ExtractedActivity[]> {
+export async function generateActivitiesAI(
+  moduleName: string,
+  criteria: string[],
+  intention?: 'SA' | 'ESTUDO_CASO' | 'TEORICA'
+): Promise<ExtractedActivity[]> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   
   const mockActivities: ExtractedActivity[] = [
     {
-      title: "Atividade Prática 1: Diagnóstico de Falhas de Causa Raiz",
-      description: "Análise técnica minuciosa de um relatório de incidentes industriais reais, mapeando as variáveis e definindo um fluxograma sistemático de contenção.",
-      resources: "Documentação de processos, simulador de diagramas e guia de conformidade técnica.",
-      expectedResult: "Mapeamento gráfico de causa e efeito com 3 propostas de soluções preventivas estruturadas."
-    },
-    {
-      title: "Atividade Prática 2: Implementação Experimental e Calibração",
-      description: "Montagem prática em bancada ou laboratório virtual integrando as competências operacionais básicas e ajuste fino de tolerância.",
-      resources: "Instrumentos de medição industrial de alta resolução, kits de componentes práticos e roteiro de calibração.",
-      expectedResult: "Protótipo operando nos limites operacionais regulamentados com laudo de ensaio datado."
+      title: intention === 'ESTUDO_CASO' 
+        ? "Estudo de Caso: Falha de Sobreaquecimento na Linha de Embalagem"
+        : intention === 'TEORICA'
+        ? "Questão Formativa: Modulação e Chaveamento de Carga"
+        : "Desafio Prático: Calibração de Sensor de Pressão Diferencial",
+      description: intention === 'ESTUDO_CASO'
+        ? "Análise de parada técnica na planta de envase sob temperaturas acima do limite nominal, considerando desgaste de componentes."
+        : intention === 'TEORICA'
+        ? "Questão conceitual analisando as perdas de potência e eficiência de circuitos integrados sob diferentes ciclos de chaveamento."
+        : "Montagem física de circuito sensorizado em bancada, ajustando a tolerância e ganho dos amplificadores operacionais.",
+      resources: intention === 'TEORICA'
+        ? "Folha de questões e gabarito referenciado."
+        : "Instrumentos de medição industrial de alta resolução, kits de componentes práticos e guia operacional.",
+      expectedResult: intention === 'ESTUDO_CASO'
+        ? "Parecer com a causa raiz identificada e 3 soluções preventivas de engenharia."
+        : intention === 'TEORICA'
+        ? "Gabarito fundamentado justificando as alternativas incorretas e a correta."
+        : "Protótipo operando nos limites regulamentados com laudo de calibração assinado."
     }
   ];
 
@@ -788,19 +800,33 @@ export async function generateActivitiesAI(moduleName: string, criteria: string[
     return mockActivities;
   }
 
+  let intentionPromptPart = "";
+  if (intention === 'SA') {
+    intentionPromptPart = `Intenção: "Desafio Prático/Situação Aprendizagem (Oficina/Laboratório)".
+Estrutura Obrigatória dentro da descrição e resultados esperados: Contextualização Real de Mercado (Cenário de Indústria), Capacidades Técnicas Avaliadas, Recursos Físicos Necessários, Passo a Passo da Execução, e Critérios de Entrega (Evidências de bancada).`;
+  } else if (intention === 'ESTUDO_CASO') {
+    intentionPromptPart = `Intenção: "Estudo de Caso/Problema Técnico".
+Estrutura Obrigatória dentro da descrição e resultados esperados: Descrição do Problema de Fábrica/Empresa, Dados Técnicos/Variáveis de análise, Perguntas Norteadoras de Análise Crítica e Solução Técnica Esperada.`;
+  } else if (intention === 'TEORICA') {
+    intentionPromptPart = `Intenção: "Avaliação Teórica/Formativa".
+Estrutura Obrigatória dentro da descrição e resultados esperados: Questões contextualizadas (nunca decoreba teórica simples) com alternativas de A a E claras, e a Justificativa Pedagógica do Gabarito para orientação do professor.`;
+  }
+
   const prompt = `Você é um especialista em educação técnica por competências na metodologia MSEP.
 Temos a Unidade Curricular "${moduleName}".
 Para avaliar se o aluno atingiu os seguintes critérios de avaliação de desempenho:
 ${criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
 
-Elabore 2 atividades práticas detalhadas de avaliação formativa e situadas no contexto profissional.
+${intentionPromptPart}
+
+Elabore 2 atividades/desafios detalhados e adequados à intenção especificada.
 Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem tags \`\`\`json, sem texto extra):
 [
   {
     "title": "Título da Atividade",
-    "description": "Descrição detalhada do desafio prático",
+    "description": "Descrição detalhada do desafio de acordo com a intenção e regras de estrutura profunda",
     "resources": "Recursos e ferramentas necessários",
-    "expectedResult": "Resultado esperado e evidência de entrega"
+    "expectedResult": "Resultado esperado e evidência de entrega detalhada"
   }
 ]`;
 
@@ -816,6 +842,618 @@ Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem tags \`\`\
     return mockActivities;
   }
 }
+
+/**
+ * Corrije um cartão-resposta (imagem) usando IA e compara com o gabarito oficial.
+ */
+export async function correctExamWithAI(
+  file: File,
+  answerKey: Record<string, string>
+): Promise<{ studentAnswers: Record<string, string>; score: number; feedback: string }> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  const mockAnswers: Record<string, string> = {};
+  Object.keys(answerKey).forEach((key) => {
+    const options = ['A', 'B', 'C', 'D', 'E'];
+    if (Math.random() < 0.8) {
+      mockAnswers[key] = answerKey[key];
+    } else {
+      mockAnswers[key] = options.filter(o => o !== answerKey[key])[Math.floor(Math.random() * 4)];
+    }
+  });
+  
+  const correctCount = Object.keys(answerKey).reduce((sum, key) => sum + (mockAnswers[key] === answerKey[key] ? 1 : 0), 0);
+  const totalQuestions = Object.keys(answerKey).length;
+  const mockScore = Math.round((correctCount / totalQuestions) * 100);
+
+  const mockFallback = {
+    studentAnswers: mockAnswers,
+    score: mockScore,
+    feedback: `Correção simulada: O aluno acertou ${correctCount} de ${totalQuestions} questões (${mockScore}/100).`
+  };
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    console.warn('Sentry AI: Chave API ausente. Usando correção de prova simulada.');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return mockFallback;
+  }
+
+  const prompt = `Você é um leitor óptico e corretor de provas inteligente.
+Analise a imagem em anexo, que é a folha de respostas/cartão-resposta preenchido por um aluno.
+Identifique quais alternativas (A, B, C, D, E) foram marcadas/preenchidas para cada uma das questões.
+
+Compare as respostas identificadas com o seguinte gabarito oficial (Chave de Respostas):
+${JSON.stringify(answerKey, null, 2)}
+
+Retorne ESTRITAMENTE um JSON no seguinte formato (sem qualquer formatação markdown, sem tags \`\`\`json):
+{
+  "studentAnswers": {
+    "1": "A",
+    "2": "C"
+  },
+  "score": 85,
+  "feedback": "Texto de feedback detalhando acertos e erros do aluno"
+}
+
+Observação: No campo "studentAnswers", mapeie todas as questões identificadas. Se não for possível ler alguma questão por rasura ou falta de preenchimento, defina o valor como null. No campo "score", calcule a porcentagem de acerto de 0 a 100 baseando-se no gabarito oficial.`;
+
+  try {
+    const filePart = await fileToGenerativePart(file);
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        { text: prompt },
+        filePart
+      ]
+    });
+    
+    const responseText = result.text || '';
+    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+    
+    return JSON.parse(cleanJson) as { studentAnswers: Record<string, string>; score: number; feedback: string };
+  } catch (error) {
+    console.error('Sentry AI Exam Correction Error:', error);
+    return mockFallback;
+  }
+}
+
+export interface VoiceReportResult {
+  student: string;
+  competency: string;
+  performance: string;
+  actions: string;
+}
+
+/**
+ * Transforma uma transcrição livre de ditado pedagógico por voz em um relatório MSEP estruturado.
+ */
+export async function formatVoiceReport(transcription: string): Promise<VoiceReportResult> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  const mockFallback: VoiceReportResult = {
+    student: 'Não identificado',
+    competency: 'Competência Geral do Componente',
+    performance: transcription || 'Desempenho satisfatório nas atividades práticas propostas em aula.',
+    actions: 'Revisar conceitos operacionais na próxima prática.'
+  };
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    console.warn('Sentry AI: Chave API ausente. Usando formatação de voz simulada.');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return mockFallback;
+  }
+
+  const prompt = `Você é um consultor pedagógico especialista na metodologia de ensino por competências do SENAI.
+Recebemos a seguinte transcrição livre de áudio ditada pelo professor sobre a prática ou estágio de um aluno:
+"${transcription}"
+
+Sua tarefa é analisar o ditado e estruturar as observações pedagógicas de forma formal, técnica e clara nos seguintes campos:
+1. Aluno: Nome do aluno citado (se não citado, indique "Não identificado").
+2. Competência: Habilidade técnica ou socioemocional sendo avaliada (ex: ajuste de torno, segurança, metrologia).
+3. Desempenho: Descrição técnica do desempenho do aluno observado pelo professor.
+4. Ações: Sugestão de ação pedagógica, recuperação ou orientação recomendada para o aluno.
+
+Retorne ESTRITAMENTE um JSON no seguinte formato (sem qualquer formatação markdown, sem tags \`\`\`json):
+{
+  "student": "Nome do Aluno",
+  "competency": "Competência",
+  "performance": "Descrição técnica e formal do desempenho",
+  "actions": "Ações e recomendações futuras"
+}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt
+    });
+
+    const responseText = result.text || '';
+    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+    
+    return JSON.parse(cleanJson) as VoiceReportResult;
+  } catch (error) {
+    console.error('Sentry AI Voice Report Error:', error);
+    return mockFallback;
+  }
+}
+
+export interface AIReportInput {
+  className: string;
+  unitName: string;
+  professorName: string;
+  activities: { title: string; weight: number }[];
+  students: { name: string; ra: string; grades: Record<string, number>; average: number }[];
+}
+
+/**
+ * Gera um relatório pedagógico profundo da IA para impressão limpa (A4)
+ */
+export async function generateAIReport(input: AIReportInput): Promise<string> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  const mockFallback = `# RELATÓRIO INDIVIDUAL DE DESEMPENHO E INTERVENÇÃO
+**Instituição:** PE Generator - Educação Profissionalizante
+**Data de Emissão:** ${new Date().toLocaleDateString()} | **Unidade Curricular:** ${input.unitName}
+**Responsável:** Prof. ${input.professorName}
+
+---
+
+## 1. DADOS E DIAGNÓSTICO
+A turma ${input.className} apresenta uma média geral de aproveitamento estimada em 75 pontos de 100 possíveis. A taxa de cumprimento de prazos e entrega de evidências práticas está em 85%.
+
+Tabela de Rendimento Consolidado dos Estudantes:
+| Aluno | RA | Média | Status de Risco |
+${input.students.map(s => `| ${s.name} | ${s.ra} | ${s.average} pts | ${s.average < 50 ? 'Crítico (Recuperação)' : 'Estável'} |`).join('\n')}
+
+## 2. CORPO DO DESENVOLVIMENTO
+As atividades avaliativas práticas desenvolvidas neste módulo indicam que a maior parte da turma assimilou as capacidades técnicas operacionais de montagem e segurança. No entanto, o cruzamento de dados de absenteísmo aponta que as terças-feiras acumulam o maior número de faltas, influenciando diretamente a nota dos alunos que perderam as aulas de laboratório.
+
+## 3. PLANO DE AÇÃO / CRITÉRIOS DE AVALIAÇÃO (MSEP)
+- **Recuperação Imediata**: Agendar reforço de bancada para os alunos listados com status de Risco Crítico nas próximas duas semanas.
+- **Ajuste de Calendário**: Deslocar os desafios práticos mais complexos para as quintas-feiras a fim de mitigar o absenteísmo observado.
+- **Prazo**: Concluir as avaliações substitutivas até o encerramento da 18ª semana letiva.
+
+---
+Assinatura do Docente Responsável: Prof. ${input.professorName}
+`;
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    console.warn('Sentry AI: Chave API ausente. Usando relatório simulado.');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return mockFallback;
+  }
+
+  const prompt = `Você é o motor de IA principal (Sentry AI) integrado ao aplicativo PE Generator.
+Sua tarefa é formatar um Relatório Administrativo/Pedagógico de Rendimento pronto para impressão em folha A4.
+
+Aqui estão os dados estruturados da turma para análise:
+- Turma: ${input.className}
+- Unidade Curricular: ${input.unitName}
+- Professor: ${input.professorName}
+- Atividades Avaliadas: ${JSON.stringify(input.activities, null, 2)}
+- Desempenho dos Alunos (Notas e Médias): ${JSON.stringify(input.students, null, 2)}
+
+Siga RIGOROSAMENTE as regras abaixo:
+1. Único e puramente em Markdown estruturado sem emojis, sem barras de progresso visuais com caracteres, sem blocos de código (code blocks) ou elementos de UI na resposta. O texto deve ser plano, focado em tipografia preta no fundo branco para que o estilo CSS @media print o formate perfeitamente em folha A4.
+2. Evite textos genéricos. Gere análises reais, diagnósticos precisos baseados nos dados enviados e aponte os alunos de risco crítico e as respectivas competências em atraso.
+3. Desenvolva um plano de ação pragmático no final (Ação de intervenção pedagógica, alunos afetados e prazos).
+
+FORMATO DE SAÍDA OBRIGATÓRIO:
+
+# [TÍTULO DO DOCUMENTO EX: RELATÓRIO INDIVIDUAL DE DESEMPENHO E INTERVENÇÃO]
+**Instituição:** PE Generator - Educação Profissionalizante
+**Data de Emissão:** [Data de Hoje] | **Unidade Curricular:** ${input.unitName}
+**Responsável:** ${input.professorName}
+
+---
+
+## 1. DADOS E DIAGNÓSTICO
+[Insira tabelas markdown limpas com dados de rendimento consolidado dos estudantes e médias de notas].
+
+## 2. CORPO DO DESENVOLVIMENTO
+[Texto analítico/pedagógico profundo detalhando as capacidades operacionais assimiladas e as dificuldades observadas].
+
+## 3. PLANO DE AÇÃO / CRITÉRIOS DE AVALIAÇÃO (MSEP)
+[Plano de intervenção pedagógica claro com ações para os alunos com média abaixo de 50 pontos, indicando prazos e formas de recuperação].
+
+---
+Assinatura do Docente Responsável: Prof. ${input.professorName}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt
+    });
+    return result.text || mockFallback;
+  } catch (error) {
+    console.error('Sentry AI Report Generation Error:', error);
+    return mockFallback;
+  }
+}
+
+// ─── SENTRY AI COPILOT CONVERSATIONAL ENGINE ────────────────────────────────
+
+export interface CopilotMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+const COPILOT_SYSTEM_PROMPTS = {
+  PLAN: `Você é o Sentry AI Copilot, coordenador pedagógico especialista em cursos técnicos SENAI por competências (MSEP).
+Sua missão é ajudar o professor a elaborar e refinar de forma colaborativa a Situação de Aprendizagem (Contexto e Desafio Prático) e os Critérios de Avaliação de Desempenho para uma Unidade Curricular.
+
+INSTRUÇÕES DE DIÁLOGO:
+1. Seja consultivo, direto, acolhedor e focado no mercado industrial. Escreva respostas curtas (máximo de 3 parágrafos) e faça no máximo UMA pergunta direta e reflexiva por vez ao professor para guiar o refinamento.
+2. Evite formalidades excessivas. Converse como um parceiro de trabalho experiente.
+3. Se o professor disser o que quer mudar ou focar, valide a ideia dele pedagogicamente e mostre como integrar isso aos critérios ou ao contexto.
+4. NUNCA envie blocos JSON cruos no diálogo regular. Apenas converse em texto livre e formatado.`,
+
+  ACTIVITIES: `Você é o Sentry AI Copilot, especialista em elaboração de avaliações técnicas e desafios pedagógicos práticos e teóricos.
+Sua missão é conversar com o professor para modelar e refinar qualquer tipo de Atividade Pedagógica de Avaliação de forma totalmente flexível.
+
+REGRAS DE OURO DA LIBERDADE DOCENTE:
+1. LIBERDADE ABSOLUTA: O professor tem autonomia total e absoluta para escolher o assunto, o escopo, o formato (questionário de múltipla escolha, dissertativa, desafio prático, estudo de caso, pesquisa, etc.), a quantidade de atividades, e os conhecimentos que quer aplicar.
+2. ATENDIMENTO PRIORITÁRIO: Se o professor pedir para criar uma atividade sobre um assunto específico (por exemplo: "um questionário sobre metais ferrosos" ou "uma prática de soldagem TIG"), atenda imediatamente ao desejo dele. Os critérios e dados originais da Unidade Curricular pré-existentes na tela servem apenas como contexto auxiliar de fundo e sugestão opcional, mas NUNCA devem limitar ou restringir a liberdade de criação do docente.
+3. ADAPTABILIDADE PEDAGÓGICA: Se o professor pedir uma atividade sobre um assunto que não esteja nos conhecimentos formais listados da UC atual, crie com entusiasmo, garantindo que ele consiga explorar quaisquer tópicos necessários com seus alunos.
+
+INSTRUÇÕES DE DIÁLOGO:
+1. Converse de forma direta, pragmática e amigável.
+2. Se o professor solicitar um questionário, testes ou quantidade específica de questões, elabore essas questões em detalhe com ele diretamente na conversa.
+3. Responda de forma sucinta e finalize sempre com uma pergunta direcionada para refinar o que foi proposto.
+4. NUNCA envie blocos JSON cruos no chat regular. Converse sempre em texto plano.`,
+
+  REPORT: `Você é o Sentry AI Copilot, motor analítico administrativo integrado ao PE Generator.
+Sua missão é discutir com o professor o rendimento da turma (médias, riscos críticos, absenteísmo) e ajudá-lo a formular um parecer pedagógico analítico profundo e um plano de ação de intervenção.
+
+INSTRUÇÕES DE DIÁLOGO:
+1. Analise os dados nominais de rendimento da turma e discuta os fatores observados pelo professor (ex: motivos de faltas, lacunas práticas).
+2. Proponha ações pragmáticas de recuperação e prazos de forma amigável, refinando o plano com base na rotina real do docente.
+3. Mantenha as respostas concisas e curtas, finalizando com uma pergunta reflexiva sobre o andamento pedagógico.
+4. NUNCA gere o markdown completo de impressão durante o diálogo regular. Apenas discuta e construa os pontos do parecer.`
+};
+
+/**
+ * Envia o histórico do chat de conversação e a nova resposta do usuário para o Gemini
+ */
+export async function sendMessageToCopilot(
+  mode: 'PLAN' | 'ACTIVITIES' | 'REPORT',
+  history: CopilotMessage[],
+  userInput: string,
+  contextData: any
+): Promise<string> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  const mockReplies: Record<'PLAN' | 'ACTIVITIES' | 'REPORT', string[]> = {
+    PLAN: [
+      `Entendi a sua preferência. É uma excelente decisão integrar esse foco prático na Unidade Curricular de ${contextData?.unitName || 'Curso'}. Como você prefere que os alunos realizem a verificação física no laboratório: utilizando kits didáticos prontos ou montando o circuito do zero em matriz de contatos?`,
+      `Perfeito! Isso trará muito realismo ao desafio. Vou estruturar a Situação de Aprendizagem de modo que os critérios de avaliação cobrem o manuseio adequado das ferramentas e a postura de segurança em bancada. Deseja que eu consolide essa versão ou quer ajustar os conhecimentos que serão avaliados?`,
+      `Entendido. Todas as capacidades foram vinculadas de forma ideal. Se estiver pronto, clique em "Consolidar e Aplicar" para que eu monte o Plano de Ensino estruturado final e as rubricas MSEP na sua tela!`
+    ],
+    ACTIVITIES: [
+      `Excelente escolha de intenção. Para a atividade proposta na UC de ${contextData?.unitName || 'Módulo'}, você prefere que o desafio simule um cenário de automação de planta industrial ou um diagnóstico residencial prático?`,
+      `Ótimo! O uso desses kits em laboratório garantirá que o aluno desenvolva a capacidade de parametrização real. Vou detalhar o passo a passo da execução e os critérios de evidência de bancada. Gostaria de estipular um limite de tempo ou tolerância de falhas para a entrega?`,
+      `Perfeito. As diretrizes estão muito sólidas. Clique em "Consolidar e Aplicar" para eu injetar as atividades formativas com seus respectivos pesos diretamente na sua grade de notas!`
+    ],
+    REPORT: [
+      `Analisando o rendimento da turma ${contextData?.className || 'Geral'}, vejo que alguns estudantes encontram-se com média abaixo de 50 pontos e com pendências de entrega. Quais foram as maiores dificuldades técnicas ou de absenteísmo que você observou neles durante as aulas práticas?`,
+      `Entendo, o absenteísmo nas aulas de laboratório realmente afeta muito a absorção das competências. Para mitigar isso no plano de ação pedagógico, concorda em agendarmos uma atividade de recuperação substitutiva em bancada nas próximas duas semanas, ou prefere estender o prazo final de entrega?`,
+      `Com certeza, essa data dá margem para que todos façam o reforço. Já tracei os diagnósticos dos alunos críticos e a intervenção. Clique em "Consolidar e Aplicar" para eu formular o parecer estruturado pronto para impressão A4 Limpa!`
+    ]
+  };
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    if (mode === 'ACTIVITIES') {
+      const lowerInput = userInput.toLowerCase();
+      const hasMetalKeywords = lowerInput.includes('metal') || lowerInput.includes('ferro') || lowerInput.includes('materia');
+      const hasQuestionnaire = lowerInput.includes('quest') || lowerInput.includes('multipla') || lowerInput.includes('alternativa') || lowerInput.includes('questionario');
+      
+      if (hasMetalKeywords && hasQuestionnaire) {
+        return `Com certeza! Elaborar um questionário com 10 questões sobre **Metais Ferrosos** na disciplina de **Tecnologia dos Materiais** é uma excelente forma de avaliar a compreensão dos alunos sobre as ligas de ferro-carbono, tratamentos térmicos e classificação de aços.
+        
+Acabei de estruturar um questionário de 10 questões de múltipla escolha, contendo 5 alternativas (A a E) e o respectivo gabarito. Clique em **"Aplicar"** na barra superior do copiloto para carregar esse questionário completo diretamente na sua grade de atividades e notas!`;
+      }
+    }
+
+    const userMsgCount = history.filter(h => h.role === 'user').length;
+    const index = Math.min(userMsgCount, mockReplies[mode].length - 1);
+    return mockReplies[mode][index];
+  }
+
+  const systemInstruction = COPILOT_SYSTEM_PROMPTS[mode];
+  const contextIntro = `DADOS DE CONTEXTO ATIVO DA APLICAÇÃO:
+${JSON.stringify(contextData, null, 2)}
+---------------------------------------------
+Use essas informações de contexto pedagógico para guiar sua conversa com o professor.`;
+
+  // Formatar histórico para o Gemini SDK
+  const geminiContents = [
+    { role: 'user', parts: [{ text: contextIntro }] },
+    ...history.map(h => ({
+      role: h.role === 'user' ? 'user' : 'model',
+      parts: [{ text: h.text }]
+    })),
+    { role: 'user', parts: [{ text: userInput }] }
+  ];
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: geminiContents,
+      config: { systemInstruction }
+    });
+    return result.text || "Desculpe, não consegui processar a resposta.";
+  } catch (error) {
+    console.error('Sentry AI Copilot Message Error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Conclui a conversa com o Copiloto e gera o artefato final estruturado
+ */
+export async function finalizeCopilotGeneration(
+  mode: 'PLAN' | 'ACTIVITIES' | 'REPORT',
+  history: CopilotMessage[],
+  contextData: any
+): Promise<any> {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+  if (!apiKey || apiKey === 'SuaApiKeyDoGoogleGeminiAqui') {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Retornar fallback simulado coerente baseado no modo
+    if (mode === 'PLAN') {
+      const caps = contextData?.capabilities || ["Executar montagem industrial", "Garantir conformidade técnica"];
+      return {
+        learningContext: `SITUAÇÃO DE APRENDIZAGEM PRÁTICA (CONSOLIDADA POR CONVERSA):
+Contexto: Uma indústria parceira precisa de suporte para ${contextData?.unitName || 'o setor mecânico'}. Os alunos atuarão em duplas em um projeto integrador com os materiais discutidos na conversa com o docente.
+
+Desafio: Elaborar laudo operacional de calibração técnica e aplicar testes funcionais conforme as diretrizes levantadas no chat.`,
+        criteria: caps.map((c: string) => `Demonstra proficiência operacional na capacidade de: ${c} de forma autônoma.`)
+      };
+    } else if (mode === 'ACTIVITIES') {
+      // Verificar se o histórico cita termos relacionados a metal/ferroso/questionário
+      const hasMetalKeywords = history.some(h => 
+        h.text.toLowerCase().includes('metal') || 
+        h.text.toLowerCase().includes('ferro') || 
+        h.text.toLowerCase().includes('material')
+      );
+      const hasQuestionnaire = history.some(h => 
+        h.text.toLowerCase().includes('quest') || 
+        h.text.toLowerCase().includes('multipla') || 
+        h.text.toLowerCase().includes('alternativa') || 
+        h.text.toLowerCase().includes('questionario')
+      );
+
+      if (hasMetalKeywords && hasQuestionnaire) {
+        return [
+          {
+            title: "Questionário Formativo: Ligas Ferrosas & Classificação",
+            description: `Questionário de Múltipla Escolha - 10 Questões sobre Metais Ferrosos (Tecnologia dos Materiais):
+
+Questão 1: Qual dos seguintes elementos é o principal constituinte de liga na fabricação do aço?
+A) Cobre
+B) Carbono (Correta)
+C) Alumínio
+D) Zinco
+E) Chumbo
+
+Questão 2: O ferro fundido cinzento caracteriza-se pela presença de carbono livre sob a forma de:
+A) Carbonetos de silício
+B) Lamelas de grafita (Correta)
+C) Nódulos esferoidais
+D) Cementita pura
+E) Martensita temperada
+
+Questão 3: Qual é o teor aproximado de carbono que divide os aços dos ferros fundidos?
+A) 0,5%
+B) 2,11% (Correta)
+C) 4,3%
+D) 6,67%
+E) 0,008%
+
+Questão 4: O processo de têmpera em aços carbono visa principalmente obter a fase microestrutural chamada:
+A) Perlita
+B) Ferrita
+C) Martensita (Correta)
+D) Austenita
+E) Ledeburita
+
+Questão 5: Dentre as ligas ferrosas abaixo, qual possui a maior ductilidade?
+A) Ferro fundido branco
+B) Aço de baixo carbono (Correta)
+C) Aço ferramenta rápido
+D) Ferro fundido cinzento
+E) Aço martensítico
+
+Questão 6: A adição de Cromo (Cr) em teores superiores a 12% em aços visa principalmente conferir:
+A) Alta condutibilidade elétrica
+B) Resistência à corrosão - Aço Inoxidável (Correta)
+C) Baixo ponto de fusão
+D) Alta maleabilidade em baixas temperaturas
+E) Coloração avermelhada
+
+Questão 7: Qual é o principal mineral fonte para a extração do ferro no alto-forno?
+A) Bauxita
+B) Hematita (Correta)
+C) Calcita
+D) Galena
+E) Calcopirita
+
+Questão 8: O que diferencia o ferro fundido nodular do cinzento?
+A) O teor de silício é zero
+B) O grafite está em forma de esferas/nódulos devido à adição de magnésio (Correta)
+C) É um metal não-ferroso
+D) Não possui carbono
+E) Tem alta fragilidade em relação ao cinzento
+
+Questão 9: O tratamento térmico de recozimento em ligas ferrosas tem como objetivo:
+A) Aumentar a dureza ao máximo
+B) Aliviar tensões internas e aumentar a ductilidade/usinabilidade (Correta)
+C) Criar uma camada superficial cementada
+D) Eliminar totalmente o cromo da liga
+E) Transformar o aço em cobre
+
+Questão 10: O constituinte 'Cementita' nas ligas Fe-C é quimicamente definido como:
+A) Silicato de ferro
+B) Carboneto de ferro - Fe3C (Correta)
+C) Óxido ferroso
+D) Sulfeto de ferro
+E) Ferro puro alfa`,
+            resources: "Folha de questões impressa e gabarito.",
+            expectedResult: "Gabarito preenchido pelos alunos, demonstrando proficiência teórica nos constituintes metalúrgicos das ligas Fe-C."
+          }
+        ];
+      }
+
+      return [
+        {
+          title: "Desafio Conversacional 1: Implementação e Parametrização",
+          description: "Montagem física do circuito discutido no chat e elaboração do fluxograma de processo com base nos insumos informados pelo professor.",
+          resources: "Instrumentos de medição, osciloscópio, kit de prototipagem.",
+          expectedResult: "Protótipo operando nos limites nominais sem sobreaquecimento."
+        },
+        {
+          title: "Desafio Conversacional 2: Diagnóstico de Falha",
+          description: "Inserção de anomalias no sistema e análise diagnóstica individual documentando a identificação da causa raiz em folha de laudo.",
+          resources: "Painel de testes com chaves de falhas simuladas.",
+          expectedResult: "Causa identificada em tempo hábil com parecer assinado."
+        }
+      ];
+    } else {
+      return `# RELATÓRIO INDIVIDUAL DE DESEMPENHO E INTERVENÇÃO
+**Instituição:** PE Generator - Educação Profissionalizante
+**Data de Emissão:** ${new Date().toLocaleDateString()} | **Unidade Curricular:** ${contextData?.unitName}
+**Responsável:** Prof. Wellington
+
+---
+
+## 1. DADOS E DIAGNÓSTICO
+A turma ${contextData?.className} foi analisada em conjunto com o docente via Sentry AI Copilot. O rendimento geral consolidou-se em 74/100, mas o absenteísmo nos encontros práticos foi apontado como fator limitante principal para os estudantes com média insatisfatória.
+
+Tabela de Rendimento Consolidado dos Estudantes:
+| Aluno | RA | Média | Status de Risco |
+${contextData?.students?.map((s: any) => `| ${s.name} | ${s.ra} | ${s.average} pts | ${s.average < 50 ? 'Crítico (Recuperação)' : 'Estável'} |`).join('\n')}
+
+## 2. CORPO DO DESENVOLVIMENTO
+As discussões bilaterais entre o docente e a IA Sentry determinaram que o foco das ações deve recair sobre a reposição das atividades de laboratório. O professor apontou facilidade da turma em relação aos conceitos introdutórios, mas deficiências operacionais significativas sob estresse de montagem.
+
+## 3. PLANO DE AÇÃO / CRITÉRIOS DE AVALIAÇÃO (MSEP)
+- **Ação**: Implementar reposição de laboratório em duplas com foco nos alunos listados com status de Risco Crítico.
+- **Prazo**: Concluir as avaliações substitutivas até o encerramento da 15ª semana letiva.
+- **Recuperação**: Exercícios práticos focados nas capacidades técnicas de segurança e ajuste fino.
+
+---
+Assinatura do Docente Responsável: Prof. Wellington`;
+    }
+  }
+
+  let prompt = "";
+  if (mode === 'PLAN') {
+    prompt = `Você é o consolidador oficial do Sentry AI Copilot.
+Estamos finalizando a conversa de elaboração de plano com o professor. Com base no seguinte histórico de diálogo entre o professor e você:
+${history.map(h => `${h.role === 'user' ? 'Docente' : 'Sentry AI'}: ${h.text}`).join('\n')}
+
+E no contexto pedagógico original:
+UC: ${contextData?.unitName}
+Capacidades a serem avaliadas: ${JSON.stringify(contextData?.capabilities || [])}
+Conhecimentos: ${JSON.stringify(contextData?.knowledgeList || [])}
+
+Consolide as decisões tomadas e gere a Situação de Aprendizagem (Contexto e Desafio) e o Critério correspondente a cada capacidade.
+Retorne ESTRITAMENTE um JSON no seguinte formato (sem markdown, sem tags \`\`\`json):
+{
+  "learningContext": "Texto contextualizado completo da situação de aprendizagem (unindo o contexto de mercado e o desafio prático combinados)",
+  "criteria": ["Critério de avaliação correspondente à Capacidade 1", "Critério correspondente à Capacidade 2"]
+}`;
+  } else if (mode === 'ACTIVITIES') {
+    prompt = `Você é o consolidador oficial do Sentry AI Copilot.
+Com base no histórico da conversa com o professor:
+${history.map(h => `${h.role === 'user' ? 'Docente' : 'Sentry AI'}: ${h.text}`).join('\n')}
+
+E no contexto pedagógico da UC:
+UC: ${contextData?.unitName}
+Critérios de Avaliação: ${JSON.stringify(contextData?.criteria || [])}
+Intenção selecionada: ${contextData?.intention || 'SA'}
+
+Gere as atividades/desafios de avaliação perfeitamente consolidados que reflitam as decisões, assuntos e escolhas feitas pelo professor no diálogo (respeitando o assunto e quantidade de atividades solicitada por ele, geralmente de 1 a 3 atividades).
+IMPORTANTE: As escolhas, assuntos e preferências do professor na conversa possuem precedência absoluta sobre qualquer outro dado da Unidade Curricular. Se ele pedir uma atividade sobre um assunto livre, gere com foco total nesse assunto.
+Se a conversa envolver questionários, testes ou questões de múltipla escolha/dissertativas, você DEVE escrever todas as questões por extenso (com todas as alternativas e gabarito) de forma legível e completa dentro do campo "description". Não abrevie nem oculte as questões.
+Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem tags \`\`\`json):
+[
+  {
+    "title": "Título da Atividade",
+    "description": "Descrição detalhada (ou lista de questões por extenso, se questionário)",
+    "resources": "Recursos e ferramentas necessários",
+    "expectedResult": "Resultado esperado e evidência de entrega detalhada"
+  }
+]`;
+  } else if (mode === 'REPORT') {
+    prompt = `Você é o consolidador oficial do Sentry AI Copilot.
+Com base no histórico da conversa sobre o rendimento da turma:
+${history.map(h => `${h.role === 'user' ? 'Docente' : 'Sentry AI'}: ${h.text}`).join('\n')}
+
+E nos dados analíticos da turma:
+Turma: ${contextData?.className}
+UC: ${contextData?.unitName}
+Atividades e Pesos: ${JSON.stringify(contextData?.activities || [])}
+Alunos (Notas e Médias): ${JSON.stringify(contextData?.students || [])}
+
+Gere o Relatório Pedagógico / Parecer de Rendimento final consolidado em formato Markdown pronto para impressão A4 Limpo.
+Siga RIGOROSAMENTE as regras:
+1. Markdown estruturado sem emojis, sem barras de progresso visuais com caracteres, sem blocos de código (code blocks) ou elementos de UI. O texto deve ser plano, focado em tipografia preta no fundo branco.
+2. Seja profundo, integre as justificativas de absenteísmo e dificuldades informadas pelo professor no chat.
+3. Termine com o Plano de Ação de Intervenção Pedagógica contendo as ações combinadas de recuperação e os prazos definidos.
+
+FORMATO DE SAÍDA OBRIGATÓRIO:
+
+# [TÍTULO DO DOCUMENTO EX: RELATÓRIO INDIVIDUAL DE DESEMPENHO E INTERVENÇÃO]
+**Instituição:** PE Generator - Educação Profissionalizante
+**Data de Emissão:** [Data de Hoje] | **Unidade Curricular:** ${contextData?.unitName}
+**Responsável:** Prof. Wellington
+
+---
+
+## 1. DADOS E DIAGNÓSTICO
+[Insira tabelas markdown limpas com dados de rendimento consolidado dos estudantes e médias de notas].
+
+## 2. CORPO DO DESENVOLVIMENTO
+[Texto analítico/pedagógico profundo detalhando as capacidades operacionais assimiladas, as dificuldades informadas pelo professor e as justificativas de absenteísmo].
+
+## 3. PLANO DE AÇÃO / CRITÉRIOS DE AVALIAÇÃO (MSEP)
+[Plano de intervenção pedagógica claro com ações para os alunos com média abaixo de 50 pontos, indicando prazos e formas de recuperação combinados].
+
+---
+Assinatura do Docente Responsável: Prof. Wellington`;
+  }
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt
+    });
+    
+    const responseText = result.text || '';
+    if (mode === 'REPORT') {
+      return responseText;
+    }
+
+    let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const jsonMatch = cleanJson.match(mode === 'PLAN' ? /\{[\s\S]*\}/ : /\[[\s\S]*\]/);
+    if (jsonMatch) cleanJson = jsonMatch[0];
+    
+    return JSON.parse(cleanJson);
+  } catch (error) {
+    console.error('Sentry AI Copilot Consolidation Error:', error);
+    throw error;
+  }
+}
+
+
 
 
 

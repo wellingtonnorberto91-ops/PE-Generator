@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase/config';
 import { collection, getDocs, query, orderBy, where, doc, setDoc, getDoc } from 'firebase/firestore';
-import { Search, User, FileSignature, Save, Loader2, CheckCircle2, Circle } from 'lucide-react';
+import { Search, User, FileSignature, Save, Loader2, CheckCircle2, Circle, Mic, MicOff, Sparkles } from 'lucide-react';
+import { formatVoiceReport } from '../features/ai-core/gemini';
 
 interface ClassPlan {
   id: string;
@@ -54,6 +55,100 @@ export function Dossier() {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingDossier, setLoadingDossier] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Voz & Web Speech API States
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+  const [formattingVoice, setFormattingVoice] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Inicializar Web Speech API
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setIsSpeechSupported(true);
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'pt-BR';
+
+      rec.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setDossier(prev => ({
+            ...prev,
+            report: prev.report ? `${prev.report} ${finalTranscript}` : finalTranscript
+          }));
+        }
+      };
+
+      rec.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsRecording(false);
+      };
+
+      rec.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const handleToggleRecording = () => {
+    if (!isSpeechSupported) {
+      alert("A API de Reconhecimento de Voz não é suportada neste navegador. Recomendamos o Google Chrome ou Microsoft Edge.");
+      return;
+    }
+    
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsRecording(true);
+      } catch (err) {
+        console.error("Erro ao iniciar gravação:", err);
+      }
+    }
+  };
+
+  const handleProcessVoiceReport = async () => {
+    if (!dossier.report.trim()) {
+      alert("Digite ou dite algum texto no relatório primeiro para formatar com IA.");
+      return;
+    }
+
+    setFormattingVoice(true);
+    try {
+      const formatted = await formatVoiceReport(dossier.report);
+      
+      const formattedReportText = `**[Análise de Prática Docente via Sentry AI]**
+--------------------------------------------------
+👤 **Aluno Identificado:** ${formatted.student}
+🎯 **Competência em Foco:** ${formatted.competency}
+📝 **Parecer de Desempenho:** ${formatted.performance}
+🚀 **Ações Pedagógicas Recomendadas:** ${formatted.actions}`;
+
+      setDossier(prev => ({
+        ...prev,
+        report: formattedReportText
+      }));
+
+      alert("Relatório formatado e estruturado pela IA com sucesso!");
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao formatar o relatório por voz.");
+    } finally {
+      setFormattingVoice(false);
+    }
+  };
 
   useEffect(() => {
     const fetchClasses = async () => {
@@ -295,13 +390,76 @@ export function Dossier() {
                     </div>
 
                     {/* Descriptive Report */}
-                    <div className="bg-industrial-900 border border-industrial-700 rounded-xl p-5">
-                      <h3 className="text-lg font-medium text-white mb-4">Relatório Descritivo</h3>
+                    <div className="bg-industrial-900 border border-industrial-700 rounded-xl p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                        <div className="space-y-1">
+                          <h3 className="text-lg font-medium text-white">Relatório Descritivo</h3>
+                          <p className="text-xs text-slate-400">Dite as observações ou use o polimento de IA para estruturar um parecer profissional.</p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {/* Microfone de Gravação */}
+                          <button
+                            type="button"
+                            onClick={handleToggleRecording}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              isRecording 
+                                ? 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'
+                                : 'bg-industrial-800 border-industrial-700 hover:border-industrial-600 text-slate-300'
+                            }`}
+                            title={isRecording ? 'Parar gravação por voz' : 'Iniciar ditado por voz (Web Speech API)'}
+                          >
+                            {isRecording ? (
+                              <>
+                                <MicOff size={14} className="text-red-400 animate-bounce" />
+                                Ouvindo...
+                              </>
+                            ) : (
+                              <>
+                                <Mic size={14} className="text-primary" />
+                                Ditar por Voz
+                              </>
+                            )}
+                          </button>
+
+                          {/* Polimento com IA */}
+                          <button
+                            type="button"
+                            onClick={handleProcessVoiceReport}
+                            disabled={formattingVoice || !dossier.report.trim()}
+                            className="px-4 py-2 bg-gradient-to-r from-primary/10 to-accent/10 hover:from-primary/20 hover:to-accent/20 border border-primary/20 hover:border-primary/40 text-primary rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            title="Estruturar texto com metodologia por competências MSEP"
+                          >
+                            {formattingVoice ? (
+                              <>
+                                <Loader2 size={13} className="animate-spin text-primary" />
+                                Processando...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles size={13} className="text-primary" />
+                                Estruturar com IA
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {isRecording && (
+                        <div className="flex items-center gap-2 p-2.5 bg-red-500/5 border border-red-500/10 rounded-xl text-[10px] text-red-400 font-mono">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                          </span>
+                          Gravando ditado em português (pt-BR)... Fale pausadamente perto do microfone.
+                        </div>
+                      )}
+
                       <textarea
                         value={dossier.report}
                         onChange={e => setDossier({ ...dossier, report: e.target.value })}
-                        placeholder="Descreva observações adicionais sobre o desenvolvimento do aluno durante a unidade curricular..."
-                        className="w-full h-40 bg-industrial-800 border border-industrial-700 rounded-lg p-4 text-white placeholder-slate-500 outline-none focus:border-primary resize-none transition-colors"
+                        placeholder="Escreva ou dite aqui as observações pedagógicas. Clique em 'Estruturar com IA' para que a IA organize a descrição em uma Ficha Pedagógica formatada."
+                        className="w-full h-44 bg-industrial-800 border border-industrial-700 rounded-lg p-4 text-white placeholder-slate-500 outline-none focus:border-primary resize-none transition-colors"
                       ></textarea>
                     </div>
                   </>

@@ -24,9 +24,9 @@ export function AppLayout() {
     }`;
 
   return (
-    <div className="flex h-screen bg-industrial-900 text-slate-200">
+    <div className="flex h-screen bg-industrial-900 text-slate-200 print:bg-white print:text-black print:h-auto">
       {/* Sidebar sidebar */}
-      <aside className="w-64 bg-industrial-800 border-r border-industrial-700 flex flex-col">
+      <aside className="w-64 bg-industrial-800 border-r border-industrial-700 flex flex-col print:hidden">
         <div className="p-6 border-b border-industrial-700">
           <h1 className="text-xl font-bold text-white tracking-wider">
             PE <span className="text-primary">GENERATOR</span>
@@ -107,8 +107,8 @@ export function AppLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto flex flex-col">
-        <header className="h-16 border-b border-industrial-700 flex items-center justify-between px-8 bg-industrial-800/50 backdrop-blur-sm sticky top-0 z-10">
+      <main className="flex-1 overflow-auto flex flex-col print:overflow-visible print:bg-white">
+        <header className="h-16 border-b border-industrial-700 flex items-center justify-between px-8 bg-industrial-800/50 backdrop-blur-sm sticky top-0 z-10 print:hidden">
           <h2 className="text-lg font-medium text-slate-200">Visão Geral</h2>
           <div className="flex items-center gap-4">
             <button 
@@ -125,7 +125,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <div className="p-8 flex-1">
+        <div className="p-8 flex-1 print:p-0">
           <Outlet />
         </div>
       </main>

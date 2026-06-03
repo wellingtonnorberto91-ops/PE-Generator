@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../firebase/config';
 import { collection, getDocs, query, orderBy, where, doc, setDoc, getDoc } from 'firebase/firestore';
 import { 
-  generateActivitiesAI
+  correctExamWithAI
 } from '../features/ai-core/gemini';
+import { SentryCopilot } from '../components/layout/SentryCopilot';
 import { 
   Award, Sparkles, Save, Printer, Loader2, Plus, Trash2, 
   ClipboardList, TrendingUp, Percent, AlertCircle, Upload, 
@@ -66,14 +67,19 @@ export function EvaluationPanel() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [deliveries, setDeliveries] = useState<StudentDelivery[]>([]);
   
-  const [activeTab, setActiveTab] = useState<'atividades' | 'lancamentos' | 'kpis' | 'relatorios' | 'plano'>('atividades');
+  const [activeTab, setActiveTab] = useState<'atividades' | 'lancamentos' | 'kpis' | 'relatorios' | 'plano' | 'scanner'>('atividades');
   const [activeAssessmentPlan, setActiveAssessmentPlan] = useState<any | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
-  const [activeReportType, setActiveReportType] = useState<'plano' | 'geral' | 'individual' | 'dossie' | 'criterios' | null>(null);
+  const [activeReportType, setActiveReportType] = useState<'plano' | 'geral' | 'individual' | 'dossie' | 'criterios' | 'ai_report' | null>(null);
   const [selectedStudentForReport, setSelectedStudentForReport] = useState<string>('');
   
+  // Sentry AI States
+  const [intentionForAI, setIntentionForAI] = useState<'SA' | 'ESTUDO_CASO' | 'TEORICA'>('SA');
+  const [aiReportText, setAiReportText] = useState<string>('');
+  const [isCopilotOpenForActivities, setIsCopilotOpenForActivities] = useState<boolean>(false);
+  const [isCopilotOpenForReport, setIsCopilotOpenForReport] = useState<boolean>(false);
+  
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   
   // Modal/Manual Activity Form
@@ -86,6 +92,107 @@ export function EvaluationPanel() {
   // File Upload Simulations
   const [uploadingForStudent, setUploadingForStudent] = useState<{ studentId: string; activityId: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // States para o Scanner de Provas por IA
+  const [selectedStudentForScanner, setSelectedStudentForScanner] = useState<string>('');
+  const [selectedActivityForScanner, setSelectedActivityForScanner] = useState<string>('');
+  const [scannerFile, setScannerFile] = useState<File | null>(null);
+  const [scannerFilePreview, setScannerFilePreview] = useState<string>('');
+  const [scannerAnswerKey, setScannerAnswerKey] = useState<Record<string, string>>({
+    '1': 'A',
+    '2': 'B',
+    '3': 'C',
+    '4': 'D',
+    '5': 'A'
+  });
+  const [scanning, setScanning] = useState(false);
+  const [scannerResult, setScannerResult] = useState<{
+    studentAnswers: Record<string, string>;
+    score: number;
+    feedback: string;
+  } | null>(null);
+
+  const handleScanExam = async () => {
+    if (!scannerFile) {
+      alert('Por favor, faça o upload de uma imagem do cartão-resposta.');
+      return;
+    }
+    if (!selectedStudentForScanner) {
+      alert('Por favor, selecione um estudante.');
+      return;
+    }
+    if (!selectedActivityForScanner) {
+      alert('Por favor, selecione uma atividade para lançar a nota.');
+      return;
+    }
+
+    setScanning(true);
+    setScannerResult(null);
+    try {
+      const result = await correctExamWithAI(scannerFile, scannerAnswerKey);
+      setScannerResult(result);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao corrigir a prova com a IA. Tente novamente.');
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleApplyScannerScore = async () => {
+    if (!scannerResult || !selectedStudentForScanner || !selectedActivityForScanner) return;
+    
+    setSaving(true);
+    try {
+      setDeliveries(prev => {
+        const idx = prev.findIndex(d => d.studentId === selectedStudentForScanner && d.activityId === selectedActivityForScanner);
+        const updated = [...prev];
+        const evaluationValue = scannerResult.score >= 85 ? 'D' : scannerResult.score >= 50 ? 'S' : 'NS';
+        
+        const newDelivery = {
+          studentId: selectedStudentForScanner,
+          activityId: selectedActivityForScanner,
+          grade: scannerResult.score,
+          evaluation: evaluationValue as 'S' | 'NS' | 'D' | '',
+          fileName: scannerFile?.name || 'gabarito_escaner.jpg',
+          fileUrl: 'document_icon'
+        };
+
+        if (idx !== -1) {
+          updated[idx] = newDelivery;
+        } else {
+          updated.push(newDelivery);
+        }
+        
+        // Persistir no Firestore
+        const dataId = `${selectedClassId}_mod_${selectedModuleIndex}`;
+        setDoc(doc(db, 'evaluation_data', dataId), {
+          classId: selectedClassId,
+          moduleIndex: selectedModuleIndex,
+          activities,
+          deliveries: updated,
+          updatedAt: new Date()
+        }).then(() => {
+          alert(`Nota de ${scannerResult.score} pontos atribuída com sucesso ao aluno!`);
+        }).catch(err => {
+          console.error("Erro ao salvar no Firestore após escanear", err);
+          alert("A nota foi atualizada na tela, mas houve um erro ao persistir no banco.");
+        });
+        
+        return updated;
+      });
+      
+      // Resetar o scanner após sucesso
+      setScannerFile(null);
+      setScannerFilePreview('');
+      setScannerResult(null);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao lançar a nota.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Load classes/plans
   useEffect(() => {
@@ -153,9 +260,11 @@ export function EvaluationPanel() {
           const evalData = evalSnap.data();
           setActivities(evalData.activities || []);
           setDeliveries(evalData.deliveries || []);
+          setAiReportText(evalData.aiReportText || '');
         } else {
           setActivities([]);
           setDeliveries([]);
+          setAiReportText('');
         }
 
         // 3. Fetch correspondente da coleção assessments_formativa
@@ -185,48 +294,34 @@ export function EvaluationPanel() {
 
   const activeModule = selectedPlanDetails?.modules[selectedModuleIndex];
 
-  // AI Activity Generator
-  const handleAIGenerateActivities = async () => {
-    if (!activeModule) return;
-    setGenerating(true);
-    try {
-      const criteria = activeModule.technicalCapabilities || activeModule.capacidadesTecnicas || [
-        "Executar montagem industrial",
-        "Garantir conformidade técnica e de segurança"
-      ];
-      
-      const response = await generateActivitiesAI(activeModule.name, criteria);
-      
-      const newActs: Activity[] = response.map((act, index) => ({
-        id: `act_${Date.now()}_${index}`,
-        title: act.title,
-        description: act.description,
-        resources: act.resources,
-        expectedResult: act.expectedResult,
-        weight: Math.round(100 / response.length)
-      }));
-      
-      setActivities(newActs);
 
-      // Initialize deliveries
-      const newDels: StudentDelivery[] = [];
-      students.forEach(student => {
-        newActs.forEach(act => {
-          newDels.push({
-            studentId: student.id,
-            activityId: act.id,
-            grade: 0,
-            evaluation: ''
-          });
+
+  const handleApplyCopilotActivities = (result: any) => {
+    if (!result || !Array.isArray(result)) return;
+    const newActs: Activity[] = result.map((act: any, index: number) => ({
+      id: `act_${Date.now()}_${index}`,
+      title: act.title,
+      description: act.description,
+      resources: act.resources,
+      expectedResult: act.expectedResult,
+      weight: Math.round(100 / result.length)
+    }));
+    
+    setActivities(newActs);
+
+    // Initialize deliveries
+    const newDels: StudentDelivery[] = [];
+    students.forEach(student => {
+      newActs.forEach(act => {
+        newDels.push({
+          studentId: student.id,
+          activityId: act.id,
+          grade: 0,
+          evaluation: ''
         });
       });
-      setDeliveries(newDels);
-    } catch (e) {
-      console.error(e);
-      alert('Erro ao se comunicar com o Sentry AI.');
-    } finally {
-      setGenerating(false);
-    }
+    });
+    setDeliveries(newDels);
   };
 
   // Add manual activity
@@ -336,6 +431,7 @@ export function EvaluationPanel() {
         moduleIndex: selectedModuleIndex,
         activities,
         deliveries,
+        aiReportText,
         updatedAt: new Date()
       });
       alert('Painel de Atividades e Resultados salvo com sucesso!');
@@ -452,6 +548,54 @@ export function EvaluationPanel() {
       topStudents: studentAvgs.slice(0, 3).map(a => a.student)
     };
   }, [students, activities, deliveries]);
+
+  const renderPlan = activeAssessmentPlan || {
+    schoolName: "SENAI - Unidade de Educação Profissional",
+    courseName: selectedPlanDetails?.name || "Curso Técnico",
+    semester: activeModule?.name ? "Módulo" : "Módulo Geral",
+    unitName: activeModule?.name || "Unidade Curricular",
+    learningContext: "Situação de aprendizagem contextualizada baseada nos desafios práticos do módulo técnico correspondente.",
+    capabilities: activeModule?.technicalCapabilities || activeModule?.capacidadesTecnicas || ["Executar montagem industrial", "Garantir conformidade técnica e de segurança"],
+    knowledgeList: activeModule?.knowledge || activeModule?.conhecimentos || ["Fundamentos do Eixo", "Boas Práticas Operacionais"],
+    tableRows: (activeModule?.technicalCapabilities || activeModule?.capacidadesTecnicas || ["Executar montagem e manutenção", "Calibrar sistemas operacionais"]).map(cap => ({
+      capability: cap,
+      criterion: `Demonstra proficiência operacional em: ${cap}`,
+      studentEvaluations: {}
+    })),
+    rubricLevels: [
+      { nivel: 1, description: "Nenhum critério crítico atendido", type: "Insatisfatório", grade: 1.0 },
+      { nivel: 2, description: "Critérios críticos parcialmente atingidos", type: "Em Desenvolvimento", grade: 4.0 },
+      { nivel: 3, description: "Todos os critérios críticos atingidos", type: "Satisfatório", grade: 7.0 },
+      { nivel: 4, description: "Todos os críticos + critérios desejáveis atingidos", type: "Excelente", grade: 10.0 }
+    ]
+  };
+
+
+
+  const handleApplyCopilotReport = async (result: string) => {
+    if (!result) return;
+    setAiReportText(result);
+    
+    // Salvar no Firestore
+    setSaving(true);
+    try {
+      const dataId = `${selectedClassId}_mod_${selectedModuleIndex}`;
+      await setDoc(doc(db, 'evaluation_data', dataId), {
+        classId: selectedClassId,
+        moduleIndex: selectedModuleIndex,
+        activities,
+        deliveries,
+        aiReportText: result,
+        updatedAt: new Date()
+      });
+      alert("Parecer Pedagógico elaborado e salvo com sucesso!");
+    } catch (e) {
+      console.error("Erro ao salvar parecer de IA", e);
+      alert("Houve uma falha ao persistir o parecer.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6 print:space-y-4">
@@ -721,7 +865,7 @@ export function EvaluationPanel() {
         )}
 
         {/* TEMPLATE 4: REGISTRO DE CRITÉRIOS INTEGRADOS */}
-        {activeReportType === 'criterios' && activeAssessmentPlan && (
+        {activeReportType === 'criterios' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
               <div>
@@ -749,7 +893,7 @@ export function EvaluationPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeAssessmentPlan.tableRows.map((row: any, rIdx: number) => (
+                  {renderPlan.tableRows.map((row: any, rIdx: number) => (
                     <tr key={rIdx} className="border-b border-gray-300">
                       <td className="p-2 border-r border-gray-300 font-medium text-gray-900 leading-tight">{row.capability}</td>
                       <td className="p-2 border-r border-gray-300 text-gray-700 leading-tight">{row.criterion}</td>
@@ -789,16 +933,16 @@ export function EvaluationPanel() {
         )}
 
         {/* TEMPLATE 5: PLANO DE ENSINO COMPLETO */}
-        {activeReportType === 'plano' && activeAssessmentPlan && (
+        {activeReportType === 'plano' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center border-b-2 border-gray-800 pb-3">
               <div>
                 <h1 className="text-xl font-bold uppercase tracking-wider text-gray-900">Plano de Ensino por Competências (MSEP)</h1>
-                <p className="text-xs text-gray-600 mt-1 font-medium">SENAI • Educação Profissional • {activeAssessmentPlan.schoolName}</p>
+                <p className="text-xs text-gray-600 mt-1 font-medium">SENAI • Educação Profissional • {renderPlan.schoolName}</p>
               </div>
               <div className="text-right text-xs">
-                <p className="font-bold">Curso: {activeAssessmentPlan.courseName}</p>
-                <p className="text-gray-600">Semestre: {activeAssessmentPlan.semester}</p>
+                <p className="font-bold">Curso: {renderPlan.courseName}</p>
+                <p className="text-gray-600">Semestre: {renderPlan.semester}</p>
               </div>
             </div>
 
@@ -809,15 +953,15 @@ export function EvaluationPanel() {
                 <tbody>
                   <tr className="border-b border-gray-300">
                     <td className="p-2 bg-gray-50 font-bold w-1/4">Unidade Curricular:</td>
-                    <td className="p-2 w-1/4">{activeAssessmentPlan.unitName}</td>
+                    <td className="p-2 w-1/4">{renderPlan.unitName}</td>
                     <td className="p-2 bg-gray-50 font-bold w-1/4">Semestre:</td>
-                    <td className="p-2 w-1/4">{activeAssessmentPlan.semester}</td>
+                    <td className="p-2 w-1/4">{renderPlan.semester}</td>
                   </tr>
                   <tr>
                     <td className="p-2 bg-gray-50 font-bold w-1/4">Docente:</td>
                     <td className="p-2 w-1/4">Prof. Wellington</td>
                     <td className="p-2 bg-gray-50 font-bold w-1/4">Eixo Temático:</td>
-                    <td className="p-2 w-1/4">{activeAssessmentPlan.subjectName || activeAssessmentPlan.unitName}</td>
+                    <td className="p-2 w-1/4">{(renderPlan as any).subjectName || renderPlan.unitName}</td>
                   </tr>
                 </tbody>
               </table>
@@ -828,7 +972,7 @@ export function EvaluationPanel() {
               <div className="space-y-2">
                 <h3 className="text-xs uppercase font-bold text-gray-800">2. Capacidades Técnicas</h3>
                 <ul className="text-xs space-y-1 list-disc list-inside text-gray-700">
-                  {activeAssessmentPlan.capabilities.map((c: string, idx: number) => (
+                  {renderPlan.capabilities.map((c: string, idx: number) => (
                     <li key={idx}>{c}</li>
                   ))}
                 </ul>
@@ -836,7 +980,7 @@ export function EvaluationPanel() {
               <div className="space-y-2">
                 <h3 className="text-xs uppercase font-bold text-gray-800">3. Conhecimentos</h3>
                 <ul className="text-xs space-y-1 list-disc list-inside text-gray-700">
-                  {activeAssessmentPlan.knowledgeList.map((k: string, idx: number) => (
+                  {renderPlan.knowledgeList.map((k: string, idx: number) => (
                     <li key={idx}>{k}</li>
                   ))}
                 </ul>
@@ -847,7 +991,7 @@ export function EvaluationPanel() {
             <div className="space-y-2">
               <h3 className="text-xs uppercase font-bold text-gray-800">4. Situação de Aprendizagem</h3>
               <div className="text-xs text-gray-700 border border-gray-300 p-3 bg-gray-50 rounded leading-relaxed">
-                {activeAssessmentPlan.learningContext}
+                {renderPlan.learningContext}
               </div>
             </div>
 
@@ -865,7 +1009,7 @@ export function EvaluationPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeAssessmentPlan.tableRows.map((row: any, rIdx: number) => (
+                  {renderPlan.tableRows.map((row: any, rIdx: number) => (
                     <tr key={rIdx} className="border-b border-gray-300">
                       <td className="p-2 border-r border-gray-300 font-medium text-gray-900 leading-tight">{row.capability}</td>
                       <td className="p-2 border-r border-gray-300 text-gray-700 leading-tight">{row.criterion}</td>
@@ -891,7 +1035,7 @@ export function EvaluationPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeAssessmentPlan.rubricLevels?.map((level: any, lIdx: number) => (
+                  {renderPlan.rubricLevels?.map((level: any, lIdx: number) => (
                     <tr key={lIdx} className="border-b border-gray-300">
                       <td className="p-2 border-r border-gray-300 text-center font-bold">{level.nivel}</td>
                       <td className="p-2 border-r border-gray-300 text-gray-700">{level.description}</td>
@@ -916,6 +1060,13 @@ export function EvaluationPanel() {
                 <p className="mt-1 font-bold">Data: ____/____/_______</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TEMPLATE 6: PARECER PEDAGÓGICO DE IA (A4 LIMPO) */}
+        {activeReportType === 'ai_report' && (
+          <div className="space-y-6 text-black print:p-0 bg-white font-sans w-full">
+            {parseMarkdownToJSX(aiReportText)}
           </div>
         )}
       </div>
@@ -965,6 +1116,7 @@ export function EvaluationPanel() {
           {[
             { id: 'atividades', label: 'Atividades por IA', icon: <Sparkles size={13} /> },
             { id: 'lancamentos', label: 'Resultados & Entregas', icon: <ClipboardList size={13} /> },
+            { id: 'scanner', label: 'Scanner de Provas', icon: <Image size={13} /> },
             { id: 'kpis', label: 'KPIs & Suporte', icon: <TrendingUp size={13} /> },
             { id: 'relatorios', label: 'Impressão & Relatórios', icon: <Printer size={13} /> },
             { id: 'plano', label: 'Plano de Ensino', icon: <BookOpen size={13} /> }
@@ -996,6 +1148,29 @@ export function EvaluationPanel() {
         )}
       </div>
 
+      {/* Seletor Proeminente de Unidade Curricular */}
+      {selectedPlanDetails && selectedPlanDetails.modules.length > 0 && (
+        <div className="bg-industrial-850 border border-industrial-700 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden shadow-xl relative overflow-hidden">
+          <div className="absolute left-0 top-0 h-full w-1 bg-primary" />
+          <div className="space-y-1 pl-2">
+            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider font-mono">Unidade Curricular Ativa</span>
+            <h4 className="text-sm font-bold text-white uppercase">{activeModule?.name || 'Selecione uma UC'}</h4>
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <span className="text-xs text-slate-400 font-bold uppercase shrink-0">Mudar UC:</span>
+            <select
+              value={selectedModuleIndex}
+              onChange={e => setSelectedModuleIndex(Number(e.target.value))}
+              className="w-full md:w-72 bg-industrial-900 border border-industrial-700 text-white text-xs rounded-xl p-3 outline-none focus:border-primary font-bold cursor-pointer transition-all hover:border-industrial-600"
+            >
+              {selectedPlanDetails.modules.map((m, idx) => (
+                <option key={idx} value={idx}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* ── TAB CONTENT: 1. ATIVIDADES ── */}
       {activeTab === 'atividades' && (
         <div className="space-y-6 print:hidden">
@@ -1012,30 +1187,36 @@ export function EvaluationPanel() {
               </p>
             </div>
 
-            <div className="flex gap-3 w-full md:w-auto">
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="flex-1 md:flex-initial px-4 py-3 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 text-slate-300 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Plus size={14} /> Atividade Manual
-              </button>
-              <button
-                onClick={handleAIGenerateActivities}
-                disabled={generating || !activeModule}
-                className="flex-1 md:flex-initial px-5 py-3 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-60 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all cursor-pointer"
-              >
-                {generating ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Elaborando Atividades...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} />
-                    Gerar Atividades com IA
-                  </>
-                )}
-              </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
+              <div className="flex items-center gap-2 bg-industrial-900 border border-industrial-700 rounded-xl p-1.5 px-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase font-mono tracking-wider shrink-0">Intenção:</span>
+                <select
+                  value={intentionForAI}
+                  onChange={e => setIntentionForAI(e.target.value as any)}
+                  className="bg-transparent text-white text-xs font-bold outline-none cursor-pointer pr-4"
+                >
+                  <option value="SA">Desafio Prático (Situação Aprendizagem)</option>
+                  <option value="ESTUDO_CASO">Estudo de Caso (Problema Técnico)</option>
+                  <option value="TEORICA">Avaliação Teórica / Formativa</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="px-4 py-3 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 text-slate-300 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+                >
+                  <Plus size={14} /> Atividade Manual
+                </button>
+                <button
+                  onClick={() => setIsCopilotOpenForActivities(true)}
+                  disabled={!activeModule}
+                  className="px-5 py-3 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-60 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all cursor-pointer shrink-0 font-mono"
+                >
+                  <Sparkles size={14} className="animate-pulse text-accent" />
+                  Conversar com Copiloto
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1384,7 +1565,6 @@ export function EvaluationPanel() {
                   setActiveReportType('geral');
                   setTimeout(() => window.print(), 150);
                 }}
-                disabled={activities.length === 0}
                 className="w-full py-2.5 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 hover:text-white text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
               >
                 Gerar Relatório Geral
@@ -1420,8 +1600,8 @@ export function EvaluationPanel() {
                   setActiveReportType('individual');
                   setTimeout(() => window.print(), 150);
                 }}
-                disabled={activities.length === 0 || !selectedStudentForReport}
-                className="w-full py-2.5 bg-primary hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                disabled={!selectedStudentForReport}
+                className="w-full py-2.5 bg-primary hover:bg-blue-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
               >
                 Gerar Ficha Individual
               </button>
@@ -1441,7 +1621,6 @@ export function EvaluationPanel() {
                   setActiveReportType('dossie');
                   setTimeout(() => window.print(), 150);
                 }}
-                disabled={activities.length === 0}
                 className="w-full py-2.5 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 hover:text-white text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
               >
                 Gerar Dossiê de Evidências
@@ -1462,14 +1641,90 @@ export function EvaluationPanel() {
                   setActiveReportType('criterios');
                   setTimeout(() => window.print(), 150);
                 }}
-                disabled={!activeAssessmentPlan}
                 className="w-full py-2.5 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 hover:text-white text-slate-300 text-xs font-bold rounded-xl transition-all cursor-pointer"
               >
                 Gerar Registro de Critérios
               </button>
             </div>
 
+            {/* Opção 5: Parecer Analítico por IA (A4 Limpo) */}
+            <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 hover:border-industrial-600 transition-all flex flex-col justify-between shadow-xl space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary"><Sparkles size={20} /></div>
+                <h4 className="font-bold text-white text-sm">Parecer Analítico da Sentry AI (A4 Limpo)</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Gere um parecer analítico profundo via Inteligência Artificial mapeando alunos em risco crítico de rendimento, competências afetadas e um plano de intervenção pedagógica claro.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (activities.length === 0) {
+                    alert("Por favor, garanta que existam atividades avaliativas lançadas para a geração do parecer.");
+                    return;
+                  }
+                  setIsCopilotOpenForReport(true);
+                }}
+                className="w-full py-2.5 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 font-mono"
+              >
+                <Sparkles size={13} className="animate-pulse text-accent" />
+                Conversar com Copiloto
+              </button>
+            </div>
+
           </div>
+
+          {/* Seção de Prévia do Parecer de IA na Tela */}
+          {aiReportText && (
+            <div className="bg-industrial-850 border border-industrial-700 rounded-2xl p-6 shadow-xl space-y-4 animate-in fade-in duration-300">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-industrial-700 pb-3">
+                <div>
+                  <h4 className="font-bold text-white text-sm uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="text-primary" size={16} />
+                    Parecer Pedagógico Elaborado
+                  </h4>
+                  <p className="text-[10px] text-slate-500 font-mono mt-0.5">Sentry AI Model 2.5-Flash • Salvo no Histórico</p>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      setAiReportText('');
+                    }}
+                    className="flex-1 sm:flex-initial px-4 py-2 bg-industrial-900 border border-industrial-750 hover:bg-industrial-750 text-slate-400 hover:text-slate-200 text-xs font-semibold rounded-xl transition-all cursor-pointer"
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveReportType('ai_report');
+                      setTimeout(() => {
+                        window.print();
+                      }, 150);
+                    }}
+                    className="flex-1 sm:flex-initial px-5 py-2 bg-primary hover:bg-blue-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  >
+                    <Printer size={13} />
+                    Imprimir Relatório (A4 Limpo)
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-industrial-900 border border-industrial-750 p-6 rounded-xl overflow-y-auto max-h-[500px] custom-scrollbar text-slate-300 space-y-4 font-sans preview-report-container">
+                <style>{`
+                  .preview-report-container h1 { color: #ffffff !important; border-color: #334155 !important; }
+                  .preview-report-container h2 { color: #f1f5f9 !important; }
+                  .preview-report-container h3 { color: #e2e8f0 !important; }
+                  .preview-report-container p { color: #cbd5e1 !important; }
+                  .preview-report-container li { color: #cbd5e1 !important; }
+                  .preview-report-container strong { color: #f8fafc !important; }
+                  .preview-report-container table { border-color: #334155 !important; color: #cbd5e1 !important; }
+                  .preview-report-container th { background-color: #1e293b !important; border-color: #334155 !important; color: #ffffff !important; }
+                  .preview-report-container td { border-color: #334155 !important; color: #cbd5e1 !important; }
+                  .preview-report-container hr { border-color: #334155 !important; }
+                `}</style>
+                {parseMarkdownToJSX(aiReportText)}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1614,6 +1869,438 @@ export function EvaluationPanel() {
           )}
         </div>
       )}
+
+      {/* ── TAB CONTENT: 6. SCANNER DE PROVAS POR IA ── */}
+      {activeTab === 'scanner' && (
+        <div className="space-y-6 print:hidden animate-in fade-in duration-300">
+          <div className="bg-industrial-800 border border-industrial-700 rounded-2xl p-6 relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-accent" />
+            <h3 className="text-base font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+              <Image className="text-primary" size={18} />
+              Corretor Óptico & Scanner de Provas por IA
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+              Digitalize provas objetivas usando a câmera ou fazendo o upload de fotos dos gabaritos. A IA identificará as marcações do aluno, comparará com o gabarito oficial e calculará a nota instantaneamente.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Coluna 1: Configuração do Gabarito & Aluno */}
+            <div className="lg:col-span-1 bg-industrial-800 border border-industrial-700 rounded-2xl p-6 shadow-xl space-y-5">
+              <h4 className="text-xs uppercase font-bold text-white tracking-wider font-mono border-b border-industrial-700 pb-2">
+                1. Parâmetros da Avaliação
+              </h4>
+
+              {/* Estudante */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold text-slate-400">Selecionar Aluno *</label>
+                <select
+                  value={selectedStudentForScanner}
+                  onChange={e => setSelectedStudentForScanner(e.target.value)}
+                  className="w-full bg-industrial-900 border border-industrial-700 text-white text-xs rounded-xl p-3 outline-none focus:border-primary cursor-pointer"
+                >
+                  <option value="">-- Escolha o aluno --</option>
+                  {students.map(s => <option key={s.id} value={s.id}>{s.name} (RA: {s.ra})</option>)}
+                </select>
+              </div>
+
+              {/* Atividade */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] uppercase font-bold text-slate-400">Atividade Correspondente *</label>
+                <select
+                  value={selectedActivityForScanner}
+                  onChange={e => setSelectedActivityForScanner(e.target.value)}
+                  className="w-full bg-industrial-900 border border-industrial-700 text-white text-xs rounded-xl p-3 outline-none focus:border-primary cursor-pointer"
+                >
+                  <option value="">-- Escolha a atividade --</option>
+                  {activities.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+                </select>
+              </div>
+
+              {/* Gabarito Oficial */}
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] uppercase font-bold text-slate-400">Gabarito Oficial (Chave)</label>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextId = Object.keys(scannerAnswerKey).length + 1;
+                        if (nextId <= 15) {
+                          setScannerAnswerKey(prev => ({ ...prev, [nextId.toString()]: 'A' }));
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 text-slate-300 font-bold rounded text-[10px] cursor-pointer"
+                      title="Adicionar Questão"
+                    >
+                      + Questão
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const len = Object.keys(scannerAnswerKey).length;
+                        if (len > 1) {
+                          const updated = { ...scannerAnswerKey };
+                          delete updated[len.toString()];
+                          setScannerAnswerKey(updated);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-industrial-900 border border-industrial-700 hover:bg-industrial-700 text-red-400 font-bold rounded text-[10px] cursor-pointer"
+                      title="Remover Última Questão"
+                    >
+                      - Questão
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 custom-scrollbar border border-industrial-750 p-2.5 rounded-xl bg-industrial-900/40">
+                  {Object.keys(scannerAnswerKey).map((num) => (
+                    <div key={num} className="flex justify-between items-center gap-2 text-xs">
+                      <span className="font-bold text-slate-400 font-mono w-6">Q{num}:</span>
+                      <div className="flex gap-1 flex-1 justify-end">
+                        {['A', 'B', 'C', 'D', 'E'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setScannerAnswerKey(prev => ({ ...prev, [num]: opt }))}
+                            className={`w-6 h-6 rounded-md font-bold text-[10px] flex items-center justify-center transition-all cursor-pointer ${
+                              scannerAnswerKey[num] === opt
+                                ? 'bg-primary text-white scale-110 shadow-md'
+                                : 'bg-industrial-900 text-slate-400 hover:bg-industrial-700'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna 2: Upload de Imagem / Câmera */}
+            <div className="lg:col-span-1 bg-industrial-800 border border-industrial-700 rounded-2xl p-6 shadow-xl space-y-5 flex flex-col justify-between">
+              <div className="space-y-4">
+                <h4 className="text-xs uppercase font-bold text-white tracking-wider font-mono border-b border-industrial-700 pb-2">
+                  2. Captura do Cartão-Resposta
+                </h4>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center w-full">
+                    {scannerFilePreview ? (
+                      <div className="relative w-full border border-industrial-700 rounded-xl overflow-hidden aspect-[4/3] bg-industrial-950 flex items-center justify-center">
+                        <img 
+                          src={scannerFilePreview} 
+                          alt="Previsualização do gabarito" 
+                          className="max-h-full max-w-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScannerFile(null);
+                            setScannerFilePreview('');
+                          }}
+                          className="absolute top-2 right-2 px-2.5 py-1.5 bg-industrial-900/80 hover:bg-red-500 hover:text-white border border-industrial-750 text-slate-300 text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full aspect-[4/3] border-2 border-dashed border-industrial-700 hover:border-primary bg-industrial-900/40 rounded-xl cursor-pointer transition-colors group">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                          <Upload className="w-10 h-10 text-slate-500 group-hover:text-primary mb-3 transition-colors" />
+                          <p className="text-xs text-slate-300 font-bold mb-1">Upload da Foto da Prova</p>
+                          <p className="text-[10px] text-slate-500 font-mono">PNG, JPG ou JPEG até 5MB</p>
+                        </div>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setScannerFile(file);
+                              setScannerFilePreview(URL.createObjectURL(file));
+                            }
+                          }}
+                          className="hidden" 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleScanExam}
+                disabled={scanning || !scannerFile || !selectedStudentForScanner || !selectedActivityForScanner}
+                className="w-full py-3 bg-gradient-to-r from-primary to-accent hover:from-blue-600 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all cursor-pointer mt-4 font-sans animate-pulse-subtle"
+              >
+                {scanning ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Processando Imagem com IA...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Corrigir com Sentry AI
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Coluna 3: Resultados Detalhados */}
+            <div className="lg:col-span-1 bg-industrial-800 border border-industrial-700 rounded-2xl p-6 shadow-xl space-y-4 flex flex-col justify-between">
+              <div>
+                <h4 className="text-xs uppercase font-bold text-white tracking-wider font-mono border-b border-industrial-700 pb-2">
+                  3. Relatório de Correção
+                </h4>
+
+                {!scannerResult && !scanning && (
+                  <div className="flex flex-col items-center justify-center py-20 text-center text-slate-500">
+                    <AlertCircle size={36} className="mb-2 text-industrial-600" />
+                    <p className="text-xs font-bold uppercase font-mono">Aguardando Processamento</p>
+                    <p className="text-[10px] text-slate-600 mt-1 max-w-[200px] leading-relaxed">Carregue a imagem da prova e clique em "Corrigir com Sentry AI" para ver os resultados.</p>
+                  </div>
+                )}
+
+                {scanning && (
+                  <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 gap-3">
+                    <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                    <p className="text-xs font-bold font-mono animate-pulse">Lendo gabarito do aluno...</p>
+                    <p className="text-[10px] text-slate-600">A visão computacional está escaneando a marcação de bolinhas na folha de respostas.</p>
+                  </div>
+                )}
+
+                {scannerResult && !scanning && (
+                  <div className="space-y-4">
+                    {/* Score / Grade */}
+                    <div className="bg-industrial-900 border border-industrial-750 p-4 rounded-xl text-center space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Aproveitamento Final</p>
+                      <p className="text-4xl font-extrabold text-white font-mono">{scannerResult.score} <span className="text-xs text-slate-500 font-normal">/ 100</span></p>
+                      <div className="w-full bg-industrial-800 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            scannerResult.score >= 85 ? 'bg-amber-400' : scannerResult.score >= 50 ? 'bg-primary' : 'bg-red-400'
+                          }`}
+                          style={{ width: `${scannerResult.score}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Respostas do Aluno vs Gabarito */}
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Detalhamento das Respostas</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs font-mono max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                        {Object.keys(scannerAnswerKey).map((num) => {
+                          const stuAns = scannerResult.studentAnswers[num] || 'N/A';
+                          const correctAns = scannerAnswerKey[num];
+                          const isCorrect = stuAns === correctAns;
+                          return (
+                            <div 
+                              key={num} 
+                              className={`flex justify-between items-center p-2 rounded border ${
+                                isCorrect 
+                                  ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' 
+                                  : 'bg-red-500/5 border-red-500/10 text-red-400'
+                              }`}
+                            >
+                              <span>Q{num}:</span>
+                              <span>
+                                {stuAns} {isCorrect ? '✓' : `(Gab: ${correctAns})`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Feedback */}
+                    {scannerResult.feedback && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Notas de Análise da IA</p>
+                        <p className="text-xs text-slate-300 leading-relaxed bg-industrial-900/60 p-3 rounded-lg border border-industrial-750">
+                          {scannerResult.feedback}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {scannerResult && !scanning && (
+                <button
+                  type="button"
+                  onClick={handleApplyScannerScore}
+                  disabled={saving}
+                  className="w-full py-3 bg-accent hover:bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer font-sans"
+                >
+                  {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                  Lançar Nota na Caderneta
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sentry AI Copilots */}
+      <SentryCopilot
+        isOpen={isCopilotOpenForActivities}
+        onClose={() => setIsCopilotOpenForActivities(false)}
+        mode="ACTIVITIES"
+        contextData={{
+          unitName: activeModule?.name || '',
+          intention: intentionForAI,
+          criteria: activeModule?.technicalCapabilities || activeModule?.capacidadesTecnicas || []
+        }}
+        onApply={handleApplyCopilotActivities}
+      />
+      <SentryCopilot
+        isOpen={isCopilotOpenForReport}
+        onClose={() => setIsCopilotOpenForReport(false)}
+        mode="REPORT"
+        contextData={{
+          className: selectedPlanDetails?.name || '',
+          unitName: activeModule?.name || '',
+          activities: activities.map(a => ({ title: a.title, weight: a.weight })),
+          students: students.map(student => {
+            const studentDels = deliveries.filter(d => d.studentId === student.id);
+            let totalWeightedGrade = 0;
+            let totalWeight = 0;
+            activities.forEach(act => {
+              const del = studentDels.find(d => d.activityId === act.id);
+              const grade = del ? del.grade : 0;
+              totalWeightedGrade += (grade * act.weight);
+              totalWeight += act.weight;
+            });
+            const average = totalWeight > 0 ? Math.round(totalWeightedGrade / totalWeight) : 0;
+            return {
+              name: student.name,
+              ra: student.ra,
+              average
+            };
+          })
+        }}
+        onApply={handleApplyCopilotReport}
+      />
     </div>
   );
+}
+
+function parseMarkdownToJSX(mdText: string) {
+  if (!mdText) return null;
+  const lines = mdText.split('\n');
+  let inTable = false;
+  let tableHeaders: string[] = [];
+  const renderedElements: React.ReactNode[] = [];
+  let tableRowsData: string[][] = [];
+
+  const flushTable = (keyIndex: number) => {
+    if (tableRowsData.length > 0 || tableHeaders.length > 0) {
+      renderedElements.push(
+        <div key={`table-wrapper-${keyIndex}`} className="overflow-x-auto my-4 print:my-2">
+          <table className="w-full text-left text-xs border border-black border-collapse text-black">
+            {tableHeaders.length > 0 && (
+              <thead>
+                <tr className="bg-gray-100 border-b border-black font-bold">
+                  {tableHeaders.map((cell, cIdx) => (
+                    <th key={`th-${cIdx}`} className="p-2 border border-black font-bold text-xs">{cell}</th>
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {tableRowsData.map((rowCells, rIdx) => (
+                <tr key={`tr-${rIdx}`} className="border-b border-black">
+                  {rowCells.map((cell, cIdx) => (
+                    <td key={`td-${cIdx}`} className="p-2 border border-black text-xs font-mono">{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      tableHeaders = [];
+      tableRowsData = [];
+      inTable = false;
+    }
+  };
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx].trim();
+
+    // Detecção de tabelas Markdown
+    if (line.startsWith('|')) {
+      if (line.includes('---')) {
+        continue;
+      }
+      inTable = true;
+      const cells = line.split('|').map(c => c.trim()).filter((_, i, arr) => i > 0 && i < arr.length - 1);
+      
+      const isHeader = tableHeaders.length === 0 && tableRowsData.length === 0;
+      if (isHeader) {
+        tableHeaders = cells;
+      } else {
+        tableRowsData.push(cells);
+      }
+      continue;
+    } else {
+      if (inTable) {
+        flushTable(idx);
+      }
+    }
+
+    if (line.startsWith('# ')) {
+      renderedElements.push(
+        <h1 key={idx} className="text-xl font-bold uppercase tracking-wider text-black border-b-2 border-black pb-2 mt-6 mb-4 leading-tight">
+          {line.replace('# ', '')}
+        </h1>
+      );
+    } else if (line.startsWith('## ')) {
+      renderedElements.push(
+        <h2 key={idx} className="text-base font-bold uppercase text-black mt-5 mb-2.5">
+          {line.replace('## ', '')}
+        </h2>
+      );
+    } else if (line.startsWith('### ')) {
+      renderedElements.push(
+        <h3 key={idx} className="text-sm font-bold uppercase text-black mt-4 mb-2">
+          {line.replace('### ', '')}
+        </h3>
+      );
+    } else if (line.startsWith('---')) {
+      renderedElements.push(<hr key={idx} className="border-t-2 border-black my-6" />);
+    } else if (line.startsWith('- ')) {
+      const bulletText = line.replace('- ', '');
+      renderedElements.push(
+        <li key={idx} className="ml-5 list-disc text-xs text-black leading-relaxed my-1 font-sans">
+          {parseBoldText(bulletText)}
+        </li>
+      );
+    } else if (line === '') {
+      renderedElements.push(<div key={idx} className="h-3" />);
+    } else {
+      renderedElements.push(
+        <p key={idx} className="text-xs text-black leading-relaxed my-1.5 font-sans">
+          {parseBoldText(line)}
+        </p>
+      );
+    }
+  }
+
+  if (inTable) {
+    flushTable(lines.length);
+  }
+
+  return renderedElements;
+}
+
+function parseBoldText(text: string) {
+  if (!text.includes('**')) return text;
+  const parts = text.split('**');
+  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i} className="font-bold text-black">{part}</strong> : part));
 }
