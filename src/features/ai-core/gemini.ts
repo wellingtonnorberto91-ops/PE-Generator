@@ -390,6 +390,7 @@ export interface DidacticStrategy {
   recursos: string;
   cargaHoraria: number;
   intervencao: string;
+  capacidades: string[];
 }
 
 export interface AvaliacaoCriterio {
@@ -491,6 +492,7 @@ function getMockTeachingPlan(input: TeachingPlanInput): ModuleTeachingPlan {
         recursos: 'Apresentação de slides, quadro branco, vídeos técnicos e exemplos do cotidiano profissional',
         cargaHoraria: Math.round(input.chFormativa * 0.3),
         intervencao: 'Docente conduz a exposição do conteúdo realizando questionamentos reflexivos e relacionando os conceitos ao mercado de trabalho',
+        capacidades: [input.capacidadesTecnicas[0] || 'Determinar ferramental, máquinas e equipamentos'],
       },
       {
         estrategia: 'Prática Orientada em Laboratório',
@@ -498,6 +500,7 @@ function getMockTeachingPlan(input: TeachingPlanInput): ModuleTeachingPlan {
         recursos: 'Roteiro de atividades práticas, equipamentos do laboratório, ferramentas e materiais técnicos',
         cargaHoraria: Math.round(input.chFormativa * 0.5),
         intervencao: 'Docente circula pelo laboratório oferecendo suporte individual, corrigindo desvios e incentivando a autonomia dos alunos',
+        capacidades: input.capacidadesTecnicas.slice(1, 3).length > 0 ? input.capacidadesTecnicas.slice(1, 3) : ['Realizar set up de máquinas em função do processo'],
       },
       {
         estrategia: 'Resolução de Situação-Problema em Grupo',
@@ -505,6 +508,7 @@ function getMockTeachingPlan(input: TeachingPlanInput): ModuleTeachingPlan {
         recursos: 'Enunciado do problema contextualizado, recursos digitais, espaço colaborativo',
         cargaHoraria: Math.round(input.chFormativa * 0.2),
         intervencao: 'Docente atua como mediador e facilitador, orientando sem dar a solução, estimulando o raciocínio crítico e criativo',
+        capacidades: input.capacidadesTecnicas,
       },
     ],
     avaliacaoFormativa: {
@@ -596,12 +600,12 @@ Capacidades Técnicas: ${input.capacidadesTecnicas.join('; ')}
 Conhecimentos: ${input.conhecimentos.join('; ')}
 Capacidades Sociais: ${input.capacidadesSociais.join('; ')}
 
-Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem texto extra):
+Retorne SOMENTE um JSON válido com esta estrutura (sem markdown, sem texto extra). No array "planejamentoDidatico", certifique-se de associar cada estratégia às respectivas capacidades técnicas trabalhadas no array "capacidades":
 {
   "identificacao": { "docente": "...", "curso": "...", "unidadeCurricular": "...", "modulo": "...", "semestre": "...", "chTotal": 0, "chFormativa": 0, "chSomativa": 0 },
   "competencias": { "capacidadesTecnicas": [], "conhecimentos": [], "capacidadesSociais": [] },
   "situacaoAprendizagem": { "contexto": "...", "desafio": "...", "atividades": [], "recursos": [], "resultadosEsperados": [] },
-  "planejamentoDidatico": [{ "estrategia": "...", "conteudo": "...", "recursos": "...", "cargaHoraria": 0, "intervencao": "..." }],
+  "planejamentoDidatico": [{ "estrategia": "...", "conteudo": "...", "recursos": "...", "cargaHoraria": 0, "intervencao": "...", "capacidades": ["Capacidade Técnica Trabalhada"] }],
   "avaliacaoFormativa": { "criterios": [{ "criterio": "...", "evidencia": "...", "tipo": "critico" }], "instrumento": "...", "periodicidade": "..." },
   "situacaoProblema": { "titulo": "...", "descricao": "...", "entregaveis": [] },
   "avaliacaoSomativa": { "criterios": [{ "criterio": "...", "evidencia": "...", "tipo": "critico" }], "instrumento": "..." },

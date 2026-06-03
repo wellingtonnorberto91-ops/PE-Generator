@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../firebase/config';
-import { collection, getDocs, query, where, addDoc, doc, getDoc } from 'firebase/firestore';
-import { generateCriteriaWithMethodology, generateLearningSituationsAI } from '../../features/ai-core/gemini';
+import { collection, getDocs, query, where, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { generateCriteriaWithMethodology, generateLearningSituationsAI, generateTeachingPlanAI } from '../../features/ai-core/gemini';
+import { calculateEndDate } from '../../features/calendar/engine';
 import { SentryCopilot } from '../layout/SentryCopilot';
 import { Dropzone } from '../ui/Dropzone';
 import { X, Sparkles, Save, Loader2, Plus, Trash2, ClipboardList } from 'lucide-react';
@@ -101,6 +102,25 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
   const [generatingComplete, setGeneratingComplete] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
+  // Estados para Cronograma
+  const [startDate, setStartDate] = useState('');
+  const [aulasPerDay, setAulasPerDay] = useState(4);
+  const [aulaDurationMinutes, setAulaDurationMinutes] = useState(60);
+  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [planejamentoDidatico, setPlanejamentoDidatico] = useState<any[]>([]);
+  const hoursPerDay = (aulasPerDay * aulaDurationMinutes) / 60;
+
+  const weekDays = [
+    { id: 0, label: 'Dom' }, { id: 1, label: 'Seg' }, { id: 2, label: 'Ter' },
+    { id: 3, label: 'Qua' }, { id: 4, label: 'Qui' }, { id: 5, label: 'Sex' }, { id: 6, label: 'Sáb' }
+  ];
+
+  const toggleDay = (day: number) => {
+    setSelectedDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
+  };
+
   const handleApplyCopilotPlan = (result: { learningContext: string; criteria: string[] }) => {
     if (!result) return;
     setLearningContext(result.learningContext);
@@ -151,10 +171,28 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
         existingMethodologyText
       );
 
+      // 3. Gerar Planejamento Didático MSEP
+      const teachingPlanPromise = generateTeachingPlanAI({
+        docente: "Docente Sentry",
+        curso: courseName,
+        unidadeCurricular: unitName,
+        modulo: semester,
+        semestre: semester,
+        chTotal: module.hours || 120,
+        chFormativa: Math.round((module.hours || 120) * 0.8),
+        chSomativa: Math.round((module.hours || 120) * 0.2),
+        capacidadesTecnicas: capsToUse,
+        conhecimentos: knowsToUse,
+        capacidadesSociais: module.socioemotionalCapabilities || ["Demonstrar capacidade de planejamento", "Trabalho em Equipe"]
+      });
+
       // Executar requisições em paralelo para máxima performance
-      const [situation, generatedCriteria] = await Promise.all([situationPromise, criteriaPromise]);
+      const [situation, generatedCriteria, fullPlan] = await Promise.all([situationPromise, criteriaPromise, teachingPlanPromise]);
 
       setLearningContext(situation);
+      if (fullPlan && fullPlan.planejamentoDidatico) {
+        setPlanejamentoDidatico(fullPlan.planejamentoDidatico);
+      }
 
       // Atualizar as linhas da tabela mantendo as avaliações dos alunos existentes se houver
       setTableRows(prevRows => {
@@ -195,7 +233,7 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
         list.sort((a, b) => a.name.localeCompare(b.name));
         setStudents(list);
 
-        // Fetch teaching plan to load general MSEP capabilities/knowledge as fallbacks
+        // Buscar feriados e informações da turma
         const planSnap = await getDoc(doc(db, 'teaching_plans', planId));
         let msepCapacities: string[] = [];
         let msepKnowledge: string[] = [];
@@ -205,28 +243,54 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
             msepCapacities = planData.msep.capacidadesTecnicas || [];
             msepKnowledge = planData.msep.conhecimentos || [];
           }
+          setStartDate(planData.startDate || '');
+          const savedHours = planData.hoursPerDay || 4;
+          setAulasPerDay(planData.aulasPerDay || savedHours);
+          setAulaDurationMinutes(planData.aulaDurationMinutes || 60);
+          setSelectedDays(planData.classDays || [1, 2, 3, 4, 5]);
         }
 
-        const initialCaps = module.technicalCapabilities || module.capacidadesTecnicas || (msepCapacities.length > 0 ? msepCapacities : []);
-        const initialKnow = module.knowledge || module.conhecimentos || (msepKnowledge.length > 0 ? msepKnowledge : []);
+        // Buscar plano formativa existente para carregar dados salvos
+        const formativaQuery = query(
+          collection(db, 'assessments_formativa'),
+          where('planId', '==', planId),
+          where('unitName', '==', module.name)
+        );
+        const formativaSnap = await getDocs(formativaQuery);
+        if (!formativaSnap.empty) {
+          const savedData = formativaSnap.docs[0].data();
+          setSchoolName(savedData.schoolName || 'Escola Técnica Sentry');
+          setUnitName(savedData.unitName || module.name);
+          setSemester(savedData.semester || '1º Semestre');
+          setLearningContext(savedData.learningContext || '');
+          setCapabilities(savedData.capabilities || []);
+          setKnowledgeList(savedData.knowledgeList || []);
+          setTableRows(savedData.tableRows || []);
+          setRubricLevels(savedData.rubricLevels || default12Levels);
+          setSubjectName(savedData.subjectName || '');
+          setPlanejamentoDidatico(savedData.planejamentoDidatico || []);
+        } else {
+          const initialCaps = module.technicalCapabilities || module.capacidadesTecnicas || (msepCapacities.length > 0 ? msepCapacities : []);
+          const initialKnow = module.knowledge || module.conhecimentos || (msepKnowledge.length > 0 ? msepKnowledge : []);
 
-        setCapabilities(initialCaps);
-        setKnowledgeList(initialKnow);
+          setCapabilities(initialCaps);
+          setKnowledgeList(initialKnow);
 
-        // Initialize table rows with capabilities from course plan
-        const rows: TableRow[] = initialCaps.map((cap: string) => ({
-          capability: cap,
-          criterion: 'Aguardando geração com IA...',
-          studentEvaluations: list.reduce((acc, s) => {
-            acc[s.id] = ''; // empty initial evaluation
-            return acc;
-          }, {} as Record<string, string>)
-        }));
-        setTableRows(rows);
+          // Inicializar linhas de critérios vazias
+          const rows: TableRow[] = initialCaps.map((cap: string) => ({
+            capability: cap,
+            criterion: 'Aguardando geração com IA...',
+            studentEvaluations: list.reduce((acc, s) => {
+              acc[s.id] = '';
+              return acc;
+            }, {} as Record<string, string>)
+          }));
+          setTableRows(rows);
 
-        // Trigger auto-generation automatically on modal open
-        if (initialCaps.length > 0) {
-          handleGenerateCompletePlan(initialCaps, initialKnow, list);
+          // Disparar auto-geração apenas se não houver plano salvo anterior
+          if (initialCaps.length > 0) {
+            handleGenerateCompletePlan(initialCaps, initialKnow, list);
+          }
         }
       } catch (e) {
         console.error(e);
@@ -424,8 +488,24 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
   };
 
   const handleSave = async () => {
+    if (!startDate) {
+      alert("Defina a data de início para o cronograma.");
+      return;
+    }
+    if (selectedDays.length === 0) {
+      alert("Selecione pelo menos um dia da semana para as aulas.");
+      return;
+    }
     setSaving(true);
     try {
+      // 1. Salvar o Plano de Ensino MSEP (Criar ou Atualizar)
+      const formativaQuery = query(
+        collection(db, 'assessments_formativa'),
+        where('planId', '==', planId),
+        where('unitName', '==', unitName)
+      );
+      const formativaSnap = await getDocs(formativaQuery);
+      
       const dataToSave = {
         planId,
         schoolName,
@@ -438,14 +518,71 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
         tableRows,
         rubricLevels,
         subjectName,
-        createdAt: new Date()
+        planejamentoDidatico,
+        updatedAt: new Date()
       };
-      await addDoc(collection(db, 'assessments_formativa'), dataToSave);
-      alert('Plano de Ensino e Tabela de Avaliação Formativa salvos com sucesso no banco de dados!');
+
+      if (!formativaSnap.empty) {
+        const docRef = doc(db, 'assessments_formativa', formativaSnap.docs[0].id);
+        await updateDoc(docRef, dataToSave);
+      } else {
+        await addDoc(collection(db, 'assessments_formativa'), {
+          ...dataToSave,
+          createdAt: new Date()
+        });
+      }
+
+      // 2. Buscar informações da turma para rodar o motor logístico
+      const planRef = doc(db, 'teaching_plans', planId);
+      const planSnap = await getDoc(planRef);
+      if (planSnap.exists()) {
+        const planData = planSnap.data();
+        const totalHours = planData.totalHours || 120;
+        const existingModules = planData.modules || [];
+        const updatedModules = existingModules.map((m: any) => {
+          if (m.name === module.name) {
+            return {
+              ...m,
+              technicalCapabilities: capabilities,
+              capacidadesTecnicas: capabilities,
+              knowledge: knowledgeList,
+              conhecimentos: knowledgeList
+            };
+          }
+          return m;
+        });
+
+        // Buscar feriados
+        const hSnap = await getDocs(collection(db, 'calendars'));
+        const holidaysList: string[] = [];
+        hSnap.forEach(d => holidaysList.push(d.data().date));
+
+        // Calcular término do cronograma
+        const result = calculateEndDate({
+          startDate,
+          totalHours,
+          hoursPerDay,
+          classDays: selectedDays,
+          holidays: holidaysList
+        });
+
+        // 3. Atualizar dados do cronograma na turma correspondente
+        await updateDoc(planRef, {
+          startDate,
+          endDate: result.endDate,
+          hoursPerDay,
+          aulasPerDay,
+          aulaDurationMinutes,
+          classDays: selectedDays,
+          modules: updatedModules
+        });
+      }
+
+      alert('Plano de Ensino salvo e cronograma da turma gerado com sucesso!');
       onClose();
     } catch (e) {
       console.error(e);
-      alert('Falha ao salvar o plano.');
+      alert('Falha ao salvar o plano e atualizar o cronograma.');
     } finally {
       setSaving(false);
     }
@@ -611,6 +748,62 @@ export function TeachingPlanCreator({ isOpen, onClose, module, courseName, planI
                   onChange={e => setSemester(e.target.value)} 
                   className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-industrial-700/50 pt-4 mt-2">
+              <div>
+                <label className="block text-xs uppercase font-bold text-slate-500 mb-1">Data de Início das Aulas</label>
+                <input 
+                  type="date" 
+                  value={startDate} 
+                  onChange={e => setStartDate(e.target.value)} 
+                  className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none [color-scheme:dark]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase font-bold text-slate-500 mb-1">Aulas por Dia</label>
+                <input 
+                  type="number" 
+                  min={1} 
+                  max={15}
+                  value={aulasPerDay} 
+                  onChange={e => setAulasPerDay(Number(e.target.value))} 
+                  className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2 text-sm text-white focus:border-primary outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase font-bold text-slate-500 mb-1">Duração da Aula</label>
+                <select 
+                  value={aulaDurationMinutes} 
+                  onChange={e => setAulaDurationMinutes(Number(e.target.value))} 
+                  className="w-full bg-industrial-900 border border-industrial-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-primary outline-none cursor-pointer"
+                >
+                  <option value={45}>45 Minutos</option>
+                  <option value={50}>50 Minutos</option>
+                  <option value={60}>60 Minutos (1 Hora)</option>
+                  <option value={90}>90 Minutos</option>
+                  <option value={120}>120 Minutos (2 Horas)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs uppercase font-bold text-slate-500 mb-2">Dias da Semana com Aula</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {weekDays.map(d => (
+                    <button 
+                      key={d.id} 
+                      type="button"
+                      onClick={() => toggleDay(d.id)} 
+                      className={`px-2 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                        selectedDays.includes(d.id) 
+                          ? 'bg-primary text-white shadow shadow-blue-500/20' 
+                          : 'bg-industrial-900 text-slate-400 border border-industrial-750'
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>          {/* Capacidades e Conhecimentos */}

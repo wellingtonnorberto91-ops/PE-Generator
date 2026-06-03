@@ -1,0 +1,1186 @@
+
+SITUAÇÃO DE APRENDIZAGEM 01 – Processos de Fabricação Mecânica
+Curso: Técnico em Fabricação Mecânica
+Unidade curricular (UC): Processos de Fabricação Mecânica
+Carga horária da UC: 75h
+Nº de aulas: 100 aulas
+Carga horária prevista para o desenvolvimento da Situação de Aprendizagem: 75h
+Objetivo da UC: desenvolver capacidades técnicas e socioemocionais que permitam a operacionalização dos 
+diferentes processos da fabricação mecânica, bem como a verificação de características técnicas de peças 
+em conformidade com o projeto.
+
+Capacidades a serem desenvolvidas:  Básicas (  )     Técnicas ( X )    Socioemocionais (X)
+
+Capacidades Técnicas
+
+1. Determinar ferramental, máquinas e equipamentos, de acordo com operações e características do material a ser utilizado no processo de fabricação.
+2. Realizar set up de máquinas em função do processo.
+3. Realizar operações em processos de fabricação mecânica, conforme normas. 
+4. Realizar operações de soldagem, conforme normas e folha de processo.
+5. Analisar parâmetros do processo de fabricação. 
+6. Ajustar parâmetros do processo de fabricação. 
+7. Verificar conformidade do produto com o desenho. 
+
+Capacidades Socioemocionais
+
+1. Demonstrar consciência prevencionista em relação à saúde e segurança do trabalho e ao meio ambiente. 
+2. Demonstrar capacidade de organização. 
+3. Zelar pelo uso de instrumentos, máquinas e equipamentos. 
+4. Demonstrar responsabilidade na operação de máquinas. 
+5. Demonstrar capacidade de planejamento. 
+
+
+Conhecimentos
+
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+4. Manufatura aditiva 
+
+4.1. Definição 
+4.2. Histórico 
+4.3. Aplicações 
+4.4. Processo de impressão 3D 
+4.4.1. FDM ou FFF (Fused Deposition Modeling ou Fused Filament Fabrication) 
+4.4.2. SLA (Stereolithography Apparatus) 
+4.4.3. SLS (Selective Laser Sintering) 
+4.4.4. DLP (Digital Light Projector) 
+4.4.5. Polyjet 
+4.5. Tipos e características de impressoras 3D 
+4.6. Tipo de materiais e insumos 
+
+5. Metalurgia do pó 
+
+5.1. Definição 
+5.2. Processos 
+5.3. Aplicação 
+5.4. Ferramental 
+
+6. Soldagem 
+
+6.1. Definição 
+6.2. Princípios e conceitos de eletricidade 
+6.2.1. Corrente contínua e alternada 
+6.2.2. Circuito elétrico – aberto, fechado e curto-circuito 
+6.2.3. Corrente, tensão e resistência 
+6.2.4. Energia e potência 
+6.2.5. Arco elétrico 
+6.3. Segurança em eletricidade 
+6.3.1. Efeito da energia elétrica no corpo humano 
+6.3.2. Medidas de proteção e prevenção 
+6.4. Processos de Soldagem 
+6.4.1. MIG 
+6.4.2. MAG 
+6.4.3. TIG 
+6.4.4. Eletrodo Revestido 
+6.4.5. Oxiacetileno 
+
+
+
+
+Estratégia de aprendizagem desafiadora
+Situação-problema (X)   Estudo de caso (  )  Pesquisa Aplicada (   )  Projeto (  ) Integrador (  )
+Contextualização:
+Você foi contratado como consultor técnico por uma empresa que está buscando otimizar seu processo de fabricação de peças metálicas para melhorar a eficiência e reduzir custos. A empresa atualmente utiliza processos de conformação mecânica, como trefilação e corte, mas enfrenta desafios na precisão dimensional e no acabamento superficial das peças. Você deve liderar um projeto para analisar o processo atual, identificar oportunidades de melhoria e propor soluções viáveis.
+Passos para a Solução do Problema:
+Análise do Processo Atual:
+Realize uma visita técnica à empresa para observar diretamente o processo de fabricação das peças.
+Documente os métodos utilizados, máquinas e ferramentas empregadas, além de coletar dados sobre os principais problemas enfrentados (tolerâncias fora do especificado, desperdício de material, tempo de ciclo elevado, etc.).
+Identificação de Oportunidades de Melhoria:
+Com base na análise, identifique áreas específicas que podem ser aprimoradas. Isso pode incluir ajustes nos parâmetros de processo, a introdução de novas ferramentas ou a modificação de métodos de trabalho.
+Considere também a implementação de novas tecnologias ou técnicas de controle de qualidade para melhorar a precisão e a consistência das peças.
+Desenvolvimento de Propostas de Melhoria:
+Elabore propostas detalhadas para cada área identificada, destacando os benefícios esperados, como redução de custos, aumento da produtividade ou melhoria na qualidade das peças.
+Utilize seus conhecimentos sobre materiais, máquinas e processos de fabricação para fundamentar suas recomendações.
+Apresentação e Discussão das Propostas:
+Prepare uma apresentação técnica para os gestores e operadores da empresa, explicando suas descobertas e propostas de melhoria.
+Promova uma discussão interativa para garantir que todos os envolvidos compreendam os benefícios das mudanças propostas e estejam alinhados com os objetivos do projeto.
+Implementação e Avaliação:
+Após a aprovação das propostas, coordene a implementação das melhorias em colaboração com a equipe da empresa.
+Estabeleça indicadores de desempenho para monitorar o impacto das mudanças e realizar ajustes conforme necessário para garantir resultados sustentáveis a longo prazo.
+Objetivo:
+O objetivo final é melhorar significativamente o processo de fabricação de peças metálicas da empresa, aumentando sua competitividade no mercado através de melhorias operacionais e de qualidade.
+Desafios:
+Durante o desenvolvimento do projeto, você e a equipe podem enfrentar desafios como resistência à mudança por parte dos operadores, limitações de recursos financeiros para implementação das melhorias propostas, e a necessidade de encontrar um equilíbrio entre custo, qualidade e prazo de entrega.
+Considerações Finais:
+Este projeto não apenas demonstrará suas habilidades técnicas e capacidade de análise crítica, mas também destacará suas competências socioemocionais, como capacidade de planejamento, organização e liderança em um ambiente de trabalho colaborativo.
+
+Anexos (Figuras, esquemas, desenhos, leiaute, formulários, etc):
+
+
+
+
+
+ESTRATÉGIAS DE ENSINO, APRENDIZAGEM E AVALIAÇÃO
+Nº horas / aulas
+Capacidades a serem trabalhadas
+Conhecimentos relacionados
+Estratégias de ensino e aprendizagem e instrumentos de avaliação
+Recursos e ambientes pedagógicos
+15h/
+20
+aulas
+1. Determinar ferramental, máquinas e equipamentos, de acordo com operações e características do material a ser utilizado no processo de fabricação.
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+15h/
+20
+aulas
+2. Realizar set up de máquinas em função do processo.
+
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+15h/ 
+20 aulas
+3. Realizar operações em processos de fabricação mecânica, conforme normas. 
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+15h/
+20
+aulas
+5. Analisar parâmetros do processo de fabricação. 
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+15h/
+20
+aulas
+6. Ajustar parâmetros do processo de fabricação. 
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+15h/
+20 
+aulas
+7. Verificar conformidade do produto com o desenho. 
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+40h/
+54
+aulas
+1. Demonstrar consciência prevencionista em relação à saúde e segurança do trabalho e ao meio ambiente. 
+2. Demonstrar capacidade de organização. 
+3. Zelar pelo uso de instrumentos, máquinas e equipamentos. 
+4. Demonstrar responsabilidade na operação de máquinas. 
+5. Demonstrar capacidade de planejamento. 
+
+
+1. Eletroerosão 
+1.1. Processo de eletroerosão por penetração 
+1.1.1. Definição 
+1.1.2. Características 
+1.1.3. Materiais para eletrodos 
+1.1.4. Parâmetros operacionais 
+1.1.5. Operações 
+1.2. Processo de eletroerosão a fio 
+1.2.1. Definição 
+1.2.2. Características 
+1.2.3. Insumos 
+1.2.4. Parâmetros operacionais 
+1.2.5. Operações 
+
+
+2. MOLDAGEM 
+2.1. Fundição de metais 
+2.1.1. Definição 
+2.1.2. Processos 
+2.1.3. Fornos 
+2.1.4. Moldes e Modelos 
+2.2. Injeção de polímeros 
+2.2.1. Tipos e características de injetoras 
+2.2.2. Tipos e características de moldes 
+2.2.3. Materiais: polímeros 
+2.2.4. Operação de máquinas 
+2.2.5. Ajuste de processos 
+
+
+3. Conformação Mecânica 
+3.1. Definição 
+3.2. Máquinas, ferramentas e matrizes 
+3.3. Tipos e característica dos materiais 
+3.4. Tipos e características de Processos 
+3.4.1. Laminação 
+3.4.2. Trefilação 
+3.4.3. Extrusão 
+3.4.4. Forjamento 
+3.4.5. Repuxo 
+3.4.6. Dobramento 
+3.4.7. Corte 
+3.5. Operações 
+3.6. Ajuste de processos 
+
+5. Metalurgia do pó 
+
+5.1. Definição 
+5.2. Processos 
+5.3. Aplicação 
+5.4. Ferramental 
+
+
+Exposição dialogada, exercícios orientados de fixação de conceitos, demonstração em software.
+Laboratório de CAD/CAM, recursos multimídia, Microcomputadores.
+Referências (livros, apostilas, sites, blog etc.):
+
+
+
+Vale lembrar que:
+as estratégias e recursos aqui definidos poderão ser modificados pelo docente, desde que cumpra o desenvolvimento dos conteúdos formativos previstos;
+a intervenção mediadora deverá ser planejada pelo docente no momento da seleção das estratégias, considerando sua intencionalidade na aplicação;
+a avaliação formativa é feita durante o desenvolvimento de cada estratégia, cabendo ao docente definir os momentos em que os resultados do processo de ensino e de aprendizagem serão discutidos com os alunos.
+
+
+Capacidades técnicas e socioemocionais
+Critérios de avaliação
+KAUAN
+KELVIN
+KETLYN
+KLEITON
+LEONARDO
+LIVIA
+LUCAS
+LUCAS GRATÃO
+MARIANA
+MICHELE
+MONIK
+RENAN
+VICTOR
+VINICIUS
+
+
+Determinar ferramental, máquinas e equipamentos, de acordo com operações e características do material a ser utilizado no processo de fabricação.
+Escolher ferramentas e equipamentos específicos com base nas operações de trefilação e corte, considerando as características do material (ex.: dureza, resistência, etc.).
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+
+
+
+Verificar a compatibilidade entre ferramentas, máquinas e materiais para garantir eficiência no processo de fabricação.
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+
+
+
+Sugerir atualizações ou substituições de ferramental para melhorar a precisão dimensional e o acabamento superficial das peças.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Investigar novas tecnologias de ferramentas que possam otimizar o processo de conformação mecânica.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Realizar set up de máquinas em função do processo.
+Realizar o set up inicial das máquinas de trefilação e corte de acordo com os parâmetros de processo definidos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Propor métodos para reduzir o tempo de preparação das máquinas entre diferentes lotes de produção.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Realizar operações em processos de fabricação mecânica, conforme normas.
+Garantir que todas as operações de trefilação e corte sejam realizadas de acordo com normas de qualidade e segurança estabelecidas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Realizar inspeções regulares para assegurar que as peças atendam às especificações dimensionais e de acabamento.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Reconhecer e corrigir desvios no processo de fabricação, ajustando operações conforme necessário para manter a qualidade.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Sugerir ajustes operacionais para melhorar a eficiência e a qualidade das peças ao longo do tempo.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Analisar parâmetros do processo de fabricação.
+Registrar e analisar dados de parâmetros como velocidade de corte, pressão de trefilação, temperatura, entre outros.
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+
+
+Interpretar dados para identificar padrões e tendências que impactam na qualidade e eficiência do processo.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ajustar parâmetros do processo de fabricação.
+Capacidade de ajustar rapidamente os parâmetros de processo durante a produção para manter a qualidade e eficiência.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Registrar todas as modificações realizadas nos parâmetros, justificando-as com base em resultados de análise.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Verificar conformidade do produto com o desenho.
+Conduzir inspeções visuais e dimensionais para verificar se as peças fabricadas atendem às especificações do desenho técnico.
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+
+
+
+Registrar e relatar quaisquer desvios encontrados, propondo ações corretivas imediatas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introduzir testes adicionais para validar a conformidade das peças em condições operacionais simuladas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Manter registros detalhados de todas as verificações de conformidade realizadas, facilitando a rastreabilidade e a auditoria.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Demonstrar consciência prevencionista em relação à saúde e segurança do trabalho e ao meio ambiente.
+Cumprir rigorosamente com todos os protocolos de segurança durante a análise e implementação de melhorias no processo.
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+
+
+
+Incentivar a conscientização e a prática de comportamentos seguros entre os colaboradores
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Demonstrar capacidade de organização.
+Elaborar planos detalhados para cada fase do projeto de otimização, incluindo cronogramas e alocação de recursos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Manter a organização das informações e documentos relevantes ao projeto para facilitar a consulta e tomada de decisões.
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+S
+
+
+
+Assegurar a disponibilidade adequada de materiais, equipamentos e mão de obra para a execução das atividades planejadas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Zelar pelo uso de instrumentos, máquinas e equipamentos.
+Assegurar que todos os instrumentos, máquinas e equipamentos estejam em condições adequadas para operação.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Implementar programas regulares de manutenção preventiva para prolongar a vida útil dos equipamentos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Demonstrar responsabilidade na operação de máquinas.
+Operar as máquinas com responsabilidade, seguindo procedimentos operacionais e de segurança estabelecidos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Tomar precauções adequadas para evitar acidentes e danos durante a operação das máquinas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Propor medidas de segurança adicionais para aumentar a proteção durante a operação das máquinas.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Demonstrar capacidade de planejamento.
+Elaborar planos detalhados para o projeto de fabricação do molde de injeção, incluindo etapas, prazos e alocação de recursos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Cumprir os prazos estabelecidos no planejamento, ajustando-o conforme necessário para garantir a conclusão do projeto no prazo.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Propor melhorias nos planos de projeto para aumentar a eficiência e a precisão no cumprimento dos prazos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Demonstrar capacidade de planejar contingências e reagir a mudanças para minimizar impactos no projeto.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Legenda: [S] Alcançou [N] Não alcançou [R] Alcançou em processo de recuperação
+Negrito itálico – critérios críticos
+Normal – critérios desejáveis
+Legenda:
+C= realizou
+R= não realizou
+
+
+
+
+
+TABELA DE NÍVEIS DE DESEMPENHO
+Capacidades básicas/específicas e socioemocionais
+Nível de desempenho
+Conversão em notas
+Alcançou todos os critérios críticos 18 e de 17 critérios desejáveis 
+12
+100
+Alcançou todos os critérios críticos 18 e de 15 critérios desejáveis 
+11
+92
+Alcançou todos os critérios críticos 18 e de 13 critérios desejáveis 
+10
+84
+Alcançou todos os critérios críticos 18 e de 10 critérios desejáveis 
+9
+76
+Alcançou todos os critérios críticos 18 e de 8 critérios desejáveis 
+8
+68
+Alcançou todos os critérios críticos 18 e de 5 critérios desejáveis 
+7
+60
+Alcançou todos os critérios críticos 18 e de 2 critérios desejáveis 
+6
+52
+Alcançou todos os critérios críticos (18)
+5
+50
+Alcançou 15 critérios críticos
+4
+40
+Alcançou 10 critérios críticos 
+3
+30
+Alcançou 5 critérios críticos
+2
+20
+Alcançou 1 critérios crítico
+1
+10
+
+Níveis: 12
+
